@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain Verification Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .test-section { background: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 8px; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        .result { background: #e9ecef; padding: 15px; margin: 10px 0; border-radius: 4px; white-space: pre-wrap; }
+        .success { background: #d4edda; border-left: 4px solid #28a745; }
+        .error { background: #f8d7da; border-left: 4px solid #dc3545; }
+    </style>
+</head>
+<body>
+    <h1>🔗 Blockchain Verification Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Your Minted NFT</h2>
+        <p>Use the data from your successful mint:</p>
+        <ul>
+            <li><strong>Token ID:</strong> 873293</li>
+            <li><strong>Contract:</strong> your_contract_address_here</li>
+            <li><strong>Transaction:</strong> 0xe14953b4f511d98dbe45bdd8f6c067a66e010db0055a8c9c75b256f02c383b9a</li>
+            <li><strong>Network:</strong> sepolia</li>
+        </ul>
+        
+        <button onclick="verifyNFT()">🔍 Verify NFT</button>
+        <button onclick="verifyTransaction()">🔍 Verify Transaction</button>
+        <button onclick="testBoth()">🚀 Test Both</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Custom Verification</h2>
+        <div>
+            <label>Token ID: <input type="text" id="customTokenId" value="873293"></label><br><br>
+            <label>Contract: <input type="text" id="customContract" value="your_contract_address_here" style="width: 400px;"></label><br><br>
+            <label>Transaction Hash: <input type="text" id="customTxHash" value="0xe14953b4f511d98dbe45bdd8f6c067a66e010db0055a8c9c75b256f02c383b9a" style="width: 500px;"></label><br><br>
+            <button onclick="verifyCustomNFT()">Verify Custom NFT</button>
+            <button onclick="verifyCustomTransaction()">Verify Custom Transaction</button>
+        </div>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        
+        function showResult(title, data, isError = false) {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${isError ? 'error' : 'success'}`;
+            resultDiv.innerHTML = `<h3>${title}</h3><pre>${JSON.stringify(data, null, 2)}</pre>`;
+            resultsDiv.appendChild(resultDiv);
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }
+
+        async function verifyNFT() {
+            try {
+                const response = await fetch(`${API_BASE}/api/verify-nft/873293/your_contract_address_here`);
+                const data = await response.json();
+                showResult('✅ NFT Verification Result', data);
+            } catch (error) {
+                showResult('❌ NFT Verification Error', { error: error.message }, true);
+            }
+        }
+
+        async function verifyTransaction() {
+            try {
+                const response = await fetch(`${API_BASE}/api/verify-transaction/0xe14953b4f511d98dbe45bdd8f6c067a66e010db0055a8c9c75b256f02c383b9a?network=sepolia`);
+                const data = await response.json();
+                showResult('✅ Transaction Verification Result', data);
+            } catch (error) {
+                showResult('❌ Transaction Verification Error', { error: error.message }, true);
+            }
+        }
+
+        async function verifyCustomNFT() {
+            const tokenId = document.getElementById('customTokenId').value;
+            const contract = document.getElementById('customContract').value;
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/verify-nft/${tokenId}/${contract}`);
+                const data = await response.json();
+                showResult(`✅ Custom NFT Verification (${tokenId})`, data);
+            } catch (error) {
+                showResult('❌ Custom NFT Verification Error', { error: error.message }, true);
+            }
+        }
+
+        async function verifyCustomTransaction() {
+            const txHash = document.getElementById('customTxHash').value;
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/verify-transaction/${txHash}?network=sepolia`);
+                const data = await response.json();
+                showResult(`✅ Custom Transaction Verification`, data);
+            } catch (error) {
+                showResult('❌ Custom Transaction Verification Error', { error: error.message }, true);
+            }
+        }
+
+        async function testBoth() {
+            await verifyNFT();
+            setTimeout(verifyTransaction, 1000);
+        }
+
+        // Show initial status
+        window.onload = () => {
+            showResult('🎭 Current Status', {
+                mode: 'SIMULATED (Demo Mode)',
+                note: 'This is using simulated blockchain data for demonstration',
+                server: API_BASE,
+                endpoints: [
+                    'GET /api/verify-nft/:tokenId/:contractAddress',
+                    'GET /api/verify-transaction/:txHash'
+                ]
+            });
+        };
+    </script>
+</body>
+</html>
