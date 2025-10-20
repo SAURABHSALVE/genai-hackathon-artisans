@@ -13,40 +13,65 @@ AI-powered platform that creates digital souls for handmade crafts and mints the
 ## Setup
 
 ### Prerequisites
-- Node.js (v16 or higher)
+- Python 3.8 or higher
 - OpenAI API key
 
 ### Installation
 
-1. Clone and install dependencies:
+1. **Install Python Backend Dependencies:**
 ```bash
+pip install -r requirements.txt
+```
+
+2. **Install React Frontend Dependencies:**
+```bash
+cd client
 npm install
-cd client && npm install && cd ..
+cd ..
 ```
 
-2. Create environment file:
-```bash
-cp .env.example .env
-```
-
-3. Add your OpenAI API key to `.env`:
+3. **Configure Environment:**
+Make sure your `.env` file has:
 ```
 OPENAI_API_KEY=your_openai_api_key_here
+PORT=3001
 ```
 
 ### Running the Application
 
-1. Start the backend server:
+**Terminal 1 - Backend:**
 ```bash
-npm run dev
+python app.py
 ```
 
-2. In a new terminal, start the React client:
+**Terminal 2 - Frontend:**
 ```bash
-npm run client
+cd client
+npm start
 ```
 
-3. Open http://localhost:3000 in your browser
+Then open http://localhost:3000 in your browser
+
+### Testing the Backend
+
+Make sure the backend is running, then:
+```bash
+python test_upload.py
+```
+
+### Alternative npm Scripts
+
+You can also use:
+```bash
+# Start backend
+npm run backend
+
+# Start frontend  
+npm run frontend
+
+# Test backend
+npm run test
+```
 
 ## How It Works
 
@@ -66,11 +91,11 @@ npm run client
 ## Technology Stack
 
 ### Backend
-- Node.js + Express
+- Python + Flask
 - OpenAI API (GPT-4 Vision)
-- Multer (file uploads)
-- Sharp (image processing)
-- Web3.js (blockchain integration)
+- Pillow (image processing)
+- Web3.py (blockchain integration)
+- Flask-CORS (cross-origin requests)
 
 ### Frontend
 - React
@@ -80,7 +105,7 @@ npm run client
 ### Blockchain
 - Ethereum (Sepolia testnet)
 - ERC-721 NFT standard
-- Web3.js integration
+- Web3.py integration
 
 ## Next Steps
 
