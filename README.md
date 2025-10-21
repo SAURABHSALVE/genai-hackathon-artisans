@@ -1,20 +1,23 @@
 # Artisan Craft Platform
 
-AI-powered platform that creates digital souls for handmade crafts and mints them on blockchain.
+AI-powered platform that creates digital souls for handmade crafts and mints them on blockchain with Google Cloud Storage integration.
 
 ## Features
 
-1. **Photo Upload**: Artisans upload photos of their handmade crafts
+1. **Cloud Photo Upload**: Artisans upload photos to Google Cloud Storage with automatic processing
 2. **AI Storytelling**: OpenAI generates beautiful, emotional stories about each craft
 3. **Blockchain Minting**: Stories are minted as NFTs for permanent verification
-4. **AR Preview**: (Planned) View crafts in augmented reality
+4. **AR Preview**: View crafts in augmented reality
 5. **Direct Connection**: Links artisans directly with buyers
+6. **Secure Storage**: Images stored in Google Cloud Storage bucket `users-artisans`
 
 ## Setup
 
 ### Prerequisites
 - Python 3.8 or higher
 - OpenAI API key
+- Google Cloud Project with Storage API enabled
+- Service Account with Storage Admin permissions
 
 ### Installation
 
@@ -138,3 +141,45 @@ CONTRACT_ADDRESS=your_contract_address_here
 ## License
 
 MIT License - see LICENSE file for details
+## Goo
+gle Cloud Storage Setup
+
+### Quick Setup
+1. **Create Service Account Key** (see `GCS_SETUP.md` for detailed instructions)
+2. **Download the JSON key file** and save as `service-account-key.json` in the project root
+3. **Update .env file** with your GCS configuration:
+```bash
+GCS_BUCKET_NAME=users-artisans
+GOOGLE_CLOUD_PROJECT_ID=hackathon-genai-475313
+GOOGLE_APPLICATION_CREDENTIALS=./service-account-key.json
+```
+
+### Test GCS Integration
+```bash
+python test_gcs.py
+```
+
+## Project Configuration
+
+- **Project ID**: `hackathon-genai-475313`
+- **Project Number**: `39405707731`
+- **GCS Bucket**: `users-artisans`
+- **Storage Structure**:
+  - `originals/` - Original uploaded images
+  - `processed/` - AI-processed and optimized images
+  - `thumbnails/` - Generated thumbnails
+  - `ar-models/` - 3D models for AR
+
+## New API Endpoints
+
+- `POST /api/upload-image` - Upload images to Google Cloud Storage
+- `GET /api/gcs-files` - List files in GCS bucket
+- `DELETE /api/delete-file` - Delete files from GCS bucket
+
+## Frontend Updates
+
+The seller profile now includes:
+- Multi-step wizard with image upload step
+- Real-time upload progress
+- Image preview with GCS integration
+- Automatic image processing and optimization

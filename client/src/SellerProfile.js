@@ -503,10 +503,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
+import { uploadImage, validateImageFile } from './utils/uploadUtils';
 
 const API_URL = 'http://localhost:3001';
 
-const steps = ["The Craft", "The Artisan", "The Process", "Finalize"];
+const steps = ["The Craft", "The Artisan", "The Process", "Upload Images", "Finalize"];
 
 function SellerProfile() {
   const [currentStep, setCurrentStep] = useState(0);
@@ -518,6 +519,8 @@ function SellerProfile() {
     creationProcess: '',
     materialsUsed: '',
   });
+  const [uploadedImages, setUploadedImages] = useState([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [submissionState, setSubmissionState] = useState({ status: 'idle', story: null });
 
   const handleChange = (e) => {
@@ -528,11 +531,46 @@ function SellerProfile() {
   const nextStep = () => setCurrentStep(prev => (prev < steps.length - 1 ? prev + 1 : prev));
   const prevStep = () => setCurrentStep(prev => (prev > 0 ? prev - 1 : prev));
 
+  const handleImageUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    setUploadingImages(true);
+    try {
+      const uploadPromises = files.map(async (file) => {
+        validateImageFile(file);
+        const result = await uploadImage(file);
+        return {
+          id: Date.now() + Math.random(),
+          original: result.original,
+          processed: result.processed,
+          arPreview: result.arPreview
+        };
+      });
+
+      const results = await Promise.all(uploadPromises);
+      setUploadedImages(prev => [...prev, ...results]);
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert(`Upload failed: ${error.message}`);
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const removeImage = (id) => {
+    setUploadedImages(prev => prev.filter(img => img.id !== id));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmissionState({ status: 'submitting', story: null });
     try {
-      const response = await axios.post(`${API_URL}/api/preserve-story`, formData);
+      const submissionData = {
+        ...formData,
+        images: uploadedImages
+      };
+      const response = await axios.post(`${API_URL}/api/preserve-story`, submissionData);
       setSubmissionState({ status: 'success', story: response.data.story });
     } catch (error) {
       console.error('Submission failed:', error);
@@ -541,7 +579,15 @@ function SellerProfile() {
   };
 
   const handleReset = () => {
-    setFormData({ craftType: '', artisanName: '', workshopLocation: '' /* reset all fields */ });
+    setFormData({ 
+      craftType: '', 
+      artisanName: '', 
+      workshopLocation: '',
+      culturalSignificance: '',
+      creationProcess: '',
+      materialsUsed: ''
+    });
+    setUploadedImages([]);
     setCurrentStep(0);
     setSubmissionState({ status: 'idle', story: null });
   };
@@ -584,14 +630,81 @@ function SellerProfile() {
               <label>Cultural Significance</label>
               <textarea name="culturalSignificance" value={formData.culturalSignificance} onChange={handleChange} className="story-input" placeholder="What does this craft mean to your community or family?" />
             </div>
+            <div className="story-input-group" style={{marginTop: '1.5rem'}}>
+              <label>Materials Used</label>
+              <textarea name="materialsUsed" value={formData.materialsUsed} onChange={handleChange} className="story-input" placeholder="List the materials and tools used in creating this craft..." />
+            </div>
           </motion.div>
         );
-      case 3: // Finalize
+      case 3: // Upload Images
+        return (
+          <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }}>
+            <h2 className="form-section-title font-serif">Upload Craft Images</h2>
+            <p className="text-secondary mb-4">Share photos of your craft to help preserve its visual story. Images will be stored securely in Google Cloud Storage.</p>
+            
+            <div className="story-input-group">
+              <label>Select Images</label>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleImageUpload}
+                className="story-input"
+                disabled={uploadingImages}
+              />
+              {uploadingImages && (
+                <div className="upload-progress">
+                  <div className="spinner"></div>
+                  <span>Uploading images to cloud storage...</span>
+                </div>
+              )}
+            </div>
+
+            {uploadedImages.length > 0 && (
+              <div className="uploaded-images-grid">
+                {uploadedImages.map((image) => (
+                  <div key={image.id} className="uploaded-image-item">
+                    <img 
+                      src={image.processed.url} 
+                      alt="Uploaded craft" 
+                      className="uploaded-image-preview"
+                    />
+                    <button 
+                      onClick={() => removeImage(image.id)}
+                      className="remove-image-btn"
+                      type="button"
+                    >
+                      ×
+                    </button>
+                    <div className="image-info">
+                      <small>Stored in GCS</small>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        );
+      case 4: // Finalize
         return (
           <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }}>
             <h2 className="form-section-title font-serif">Review and Preserve</h2>
             <p className="text-secondary mb-4">You are about to permanently preserve this story on the heritage ledger. Please review your details before submitting.</p>
-            {/* Display a summary of formData here if desired */}
+            
+            <div className="review-summary">
+              <div className="review-item">
+                <strong>Craft Type:</strong> {formData.craftType}
+              </div>
+              <div className="review-item">
+                <strong>Artisan:</strong> {formData.artisanName}
+              </div>
+              <div className="review-item">
+                <strong>Location:</strong> {formData.workshopLocation}
+              </div>
+              <div className="review-item">
+                <strong>Images Uploaded:</strong> {uploadedImages.length} images stored in Google Cloud Storage
+              </div>
+            </div>
           </motion.div>
         );
       default:

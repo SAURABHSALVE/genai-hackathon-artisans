@@ -205,11 +205,21 @@ import json
 from werkzeug.utils import secure_filename
 import os
 import random
+from dotenv import load_dotenv
+from services.image_service import process_image, upload_original_image, generate_ar_preview
+from services.gcs_service import gcs_service
+from services.user_data_service import user_data_service
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'genx-story-preservation-2025'
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+
+# Configure upload settings
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 UPLOAD_FOLDER = 'story_uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -241,12 +251,19 @@ def generate_ar_model_url(media_files):
 @app.route('/api/preserve-story', methods=['POST'])
 def preserve_story():
     data = request.get_json()
+    
+    # Save user data to GCS
+    user_story_result = user_data_service.save_user_story(data, data.get('images', []))
+    
+    if not user_story_result['success']:
+        return jsonify({'success': False, 'error': user_story_result['error']}), 500
+    
     enhanced_story = generate_enhanced_story(data)
     heritage_score = calculate_heritage_score(data)
-    ar_model_url = generate_ar_model_url(data.get('mediaFiles', []))
+    ar_model_url = generate_ar_model_url(data.get('images', []))
     
     story_record = {
-        'id': str(uuid.uuid4()),
+        'id': user_story_result['story_id'],
         'title': f"The Story of {data.get('artisanName', 'Unknown Artisan')}'s {data.get('craftType', 'Craft')}",
         'artisanName': data.get('artisanName'),
         'summary': enhanced_story.get('summary', ''),
@@ -254,8 +271,10 @@ def preserve_story():
         'heritageScore': heritage_score,
         'preservedDate': datetime.now().isoformat(),
         'arModelUrl': ar_model_url,
+        'gcs_stored': True,
+        'storage_location': user_story_result['blob_name']
     }
-    return jsonify({'success': True, 'story': story_record, 'message': 'Story preserved!'})
+    return jsonify({'success': True, 'story': story_record, 'message': 'Story preserved in cloud storage!'})
 
 @app.route('/api/verify-heritage', methods=['POST'])
 def verify_heritage():
@@ -366,6 +385,102 @@ def get_heritage_categories():
         {'id': 'painting', 'name': 'Traditional Painting'}
     ]
     return jsonify({'categories': categories})
+
+@app.route('/api/upload-image', methods=['POST'])
+def upload_image():
+    """Upload and process craft images to Google Cloud Storage"""
+    try:
+        if 'image' not in request.files:
+            return jsonify({'success': False, 'error': 'No image file provided'}), 400
+        
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        # Upload original image
+        original_result = upload_original_image(file)
+        if not original_result['success']:
+            return jsonify({'success': False, 'error': original_result['error']}), 500
+        
+        # Reset file pointer for processing
+        file.seek(0)
+        
+        # Process and upload processed image
+        processed_result = process_image(file, file.filename)
+        if not processed_result['success']:
+            return jsonify({'success': False, 'error': 'Failed to process image'}), 500
+        
+        # Generate AR preview
+        ar_preview = generate_ar_preview(processed_result['processed_url'])
+        
+        return jsonify({
+            'success': True,
+            'original': {
+                'url': original_result['public_url'],
+                'filename': original_result['filename']
+            },
+            'processed': {
+                'url': processed_result['processed_url'],
+                'filename': processed_result['filename']
+            },
+            'arPreview': ar_preview
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/gcs-files', methods=['GET'])
+def list_gcs_files():
+    """List files in Google Cloud Storage bucket"""
+    try:
+        prefix = request.args.get('prefix', '')
+        result = gcs_service.list_files(prefix)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/delete-file', methods=['DELETE'])
+def delete_gcs_file():
+    """Delete a file from Google Cloud Storage"""
+    try:
+        data = request.get_json()
+        blob_name = data.get('blob_name')
+        
+        if not blob_name:
+            return jsonify({'success': False, 'error': 'blob_name is required'}), 400
+        
+        result = gcs_service.delete_file(blob_name)
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/user-stories', methods=['GET'])
+def get_user_stories():
+    """Get list of all user stories"""
+    try:
+        result = user_data_service.list_user_stories()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/user-story/<story_id>', methods=['GET'])
+def get_user_story(story_id):
+    """Get specific user story"""
+    try:
+        result = user_data_service.get_user_story(story_id)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/user-story/<story_id>', methods=['DELETE'])
+def delete_user_story(story_id):
+    """Delete user story and associated files"""
+    try:
+        result = user_data_service.delete_user_story(story_id)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
     print('🌟 GenX Story Preservation Platform Starting...')

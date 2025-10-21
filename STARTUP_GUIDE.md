@@ -1,9 +1,10 @@
-# Complete Startup Guide
+# Complete Startup Guide - With Google Cloud Storage
 
 ## Architecture
-- **Backend**: Python Flask server (port 3001)
-- **Frontend**: React development server (port 3000)
-- **Communication**: Frontend → Backend API calls
+- **Backend**: Python Flask server (port 3001) + Google Cloud Storage
+- **Frontend**: React development server (port 3000) + File Upload
+- **Storage**: Google Cloud Storage bucket `users-artisans`
+- **Communication**: Frontend → Backend API → GCS
 
 ## Step-by-Step Startup
 

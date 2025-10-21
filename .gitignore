@@ -12,6 +12,12 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
+# Google Cloud Service Account Keys
+service-account-key.json
+*-service-account-key.json
+google-credentials.json
+hackathon-genai-475313-392f2db9f39b.json
+
 # Build outputs
 client/build/
 client/dist/

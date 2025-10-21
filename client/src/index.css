@@ -1,3 +1,5 @@
+/* Tailwind imports temporarily removed for debugging */
+
 /*
 ================================================================================
   Artisan Platform - Master Stylesheet [Director's Cut]
@@ -215,4 +217,105 @@ h1, h2, h3, .font-serif {
   0% { transform: scale(.95); box-shadow: 0 0 0 0 rgba(139,92,246,.7); }
   70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(139,92,246,0); }
   100% { transform: scale(.95); box-shadow: 0 0 0 0 rgba(139,92,246,0); }
+}/* 
+Image Upload Styles */
+.upload-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  color: var(--text-secondary);
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-color);
+  border-top: 2px solid var(--primary-glow);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.uploaded-images-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.uploaded-image-item {
+  position: relative;
+  background: var(--bg-card);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.uploaded-image-preview {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  display: block;
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 24px;
+  height: 24px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  transition: background-color 0.2s;
+}
+
+.remove-image-btn:hover {
+  background: rgba(239, 68, 68, 0.8);
+}
+
+.image-info {
+  padding: 0.5rem;
+  text-align: center;
+}
+
+.image-info small {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.review-summary {
+  background: var(--bg-card);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border-color);
+}
+
+.review-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.review-item:last-child {
+  border-bottom: none;
+}
+
+.review-item strong {
+  color: var(--text-primary);
 }
