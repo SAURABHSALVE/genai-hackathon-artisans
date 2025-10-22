@@ -1,17 +1,23 @@
-import React, { useContext } from 'react';
-import { Navigate } from 'react-router-dom';
-import { UserContext } from '../App';
+import React from 'react';
+import { Navigate, Outlet } from 'react-router-dom';
 
-const ProtectedRoute = ({ children }) => {
-  const { user } = useContext(UserContext);
+const ProtectedRoute = ({ allowedRoles }) => {
+  const token = localStorage.getItem('authToken');
+  const userRole = localStorage.getItem('userRole');
 
-  if (!user.isAuthenticated) {
-    // Redirect them to the /login page, but save the current location they were
-    // trying to go to. This allows us to send them along to that page after they login.
-    return <Navigate to="/login" replace />;
+  if (!token) {
+    // User is not authenticated, redirect to auth page
+    return <Navigate to="/auth" />;
   }
 
-  return children;
+  if (allowedRoles && !allowedRoles.includes(userRole)) {
+    // User is authenticated but does not have the required role,
+    // redirect to their main dashboard.
+    return <Navigate to="/dashboard" />;
+  }
+
+  // User is authenticated and has the correct role, render the child component
+  return <Outlet />;
 };
 
 export default ProtectedRoute;

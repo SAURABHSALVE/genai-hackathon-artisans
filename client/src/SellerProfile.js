@@ -1,767 +1,379 @@
+
+
 // import React, { useState, useRef, useEffect } from 'react';
-// import { motion } from 'framer-motion';
+// import { motion, AnimatePresence } from 'framer-motion';
 // import axios from 'axios';
-// import QRCode from 'qrcode';
-// import io from 'socket.io-client';
-// import { useTTS } from './hooks/useTTS';
 
 // const API_URL = 'http://localhost:3001';
-// const SOCKET_URL = 'http://localhost:3001';
 
-// function SellerProfile() {
-//   const [storyData, setStoryData] = useState({
+// const SellerProfile = () => {
+//   const [formData, setFormData] = useState({
 //     craftType: '',
 //     artisanName: '',
 //     workshopLocation: '',
-//     craftDescription: '',
-//     culturalSignificance: '',
-//     creationProcess: '',
 //     materialsUsed: '',
-//     personalJourney: '',
-//     familyTradition: '',
-//     inspirationSource: ''
+//     creationProcess: '',
+//     culturalSignificance: '',
 //   });
-//   const [mediaFiles, setMediaFiles] = useState([]);
-//   const [storyTimeline, setStoryTimeline] = useState([]);
-//   const [loading, setLoading] = useState(false);
-//   const [generatedStory, setGeneratedStory] = useState(null);
-//   const [verificationStatus, setVerificationStatus] = useState(null);
-//   const [arPreview, setArPreview] = useState(false);
-//   const [chatMessages, setChatMessages] = useState([]);
-//   const [chatInput, setChatInput] = useState('');
-//   const [isRecording, setIsRecording] = useState(false);
-//   const [audioBlob, setAudioBlob] = useState(null);
-//   const [heritageScore, setHeritageScore] = useState(0);
-  
-//   const mediaInputRef = useRef(null);
-//   const audioRef = useRef(null);
-//   const socketRef = useRef(null);
-//   const { speak, stop, isSpeaking } = useTTS();
+//   const [uploadedImage, setUploadedImage] = useState(null);
+//   const [isUploading, setIsUploading] = useState(false);
+//   const [isSubmitting, setIsSubmitting] = useState(false);
+//   const [submissionResult, setSubmissionResult] = useState(null);
+//   const [error, setError] = useState(null);
+//   const [dragActive, setDragActive] = useState(false);
+//   const fileInputRef = useRef(null);
 
-//   useEffect(() => {
-//     socketRef.current = io(SOCKET_URL);
-    
-//     if (storyData.artisanName) {
-//       socketRef.current.emit('join_artisan_room', { artisan: storyData.artisanName });
+//   const axiosInstance = axios.create({
+//     baseURL: API_URL,
+//     headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` },
+//   });
+
+//   const handleInputChange = (e) => {
+//     setFormData({ ...formData, [e.target.name]: e.target.value });
+//     setError(null);
+//   };
+
+//   const handleImageUpload = async (file) => {
+//     if (!file) return;
+
+//     // Client-side size check
+//     const maxSize = 25 * 1024 * 1024; // 25MB
+//     if (file.size > maxSize) {
+//       setError(`File is too large. Maximum size is 25MB.`);
+//       return;
 //     }
 
-//     socketRef.current.on('heritage_suggestions', (data) => {
-//       setStoryTimeline(data.timelineSuggestions || []);
-//     });
+//     setIsUploading(true);
+//     setError(null);
+//     const uploadFormData = new FormData();
+//     uploadFormData.append('image', file);
 
-//     socketRef.current.on('cultural_context', (data) => {
-//       setStoryData(prev => ({
-//         ...prev,
-//         culturalSignificance: data.context || prev.culturalSignificance
-//       }));
-//     });
-
-//     return () => socketRef.current?.disconnect();
-//   }, [storyData.artisanName]);
-
-//   const handleStoryInputChange = (e) => {
-//     const { name, value } = e.target;
-//     setStoryData(prev => ({ ...prev, [name]: value }));
-    
-//     if (name === 'craftType' || name === 'materialsUsed') {
-//       socketRef.current.emit('heritage_suggestions', { craftType: storyData.craftType || value });
-//     }
-//   };
-
-//   const handleMediaUpload = (e) => {
-//     const files = Array.from(e.target.files);
-//     const newFiles = files.map(file => ({
-//       id: Date.now() + Math.random(),
-//       file,
-//       url: URL.createObjectURL(file),
-//       type: file.type.startsWith('video') ? 'video' : 'image',
-//       timestamp: new Date().toISOString()
-//     }));
-//     setMediaFiles(prev => [...prev, ...newFiles]);
-//   };
-
-//   const removeMedia = (id) => {
-//     setMediaFiles(prev => prev.filter(item => item.id !== id));
-//   };
-
-//   const startAudioRecording = async () => {
 //     try {
-//       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-//       const mediaRecorder = new MediaRecorder(stream);
-//       const chunks = [];
-
-//       mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
-//       mediaRecorder.onstop = () => {
-//         const blob = new Blob(chunks, { type: 'audio/wav' });
-//         setAudioBlob(blob);
-//         const audioUrl = URL.createObjectURL(blob);
-//         setMediaFiles(prev => [...prev, {
-//           id: Date.now(),
-//           type: 'audio',
-//           url: audioUrl,
-//           blob,
-//           duration: '00:30'
-//         }]);
-//         stream.getTracks().forEach(track => track.stop());
-//       };
-
-//       mediaRecorder.start();
-//       setIsRecording(true);
-      
-//       setTimeout(() => {
-//         mediaRecorder.stop();
-//         setIsRecording(false);
-//       }, 30000);
+//       const response = await axiosInstance.post('/api/upload-image', uploadFormData);
+//       setUploadedImage(response.data.processed);
 //     } catch (err) {
-//       console.error('Recording failed:', err);
-//     }
-//   };
-
-//   const generateTimeline = () => {
-//     const timelineSteps = [
-//       {
-//         step: 1,
-//         title: 'Material Gathering',
-//         description: `Sourcing ${storyData.materialsUsed || 'authentic materials'} from traditional sources`,
-//         icon: '🌿',
-//         estimatedTime: '2-3 days'
-//       },
-//       {
-//         step: 2,
-//         title: 'Preparation Phase',
-//         description: 'Traditional preparation techniques passed down through generations',
-//         icon: '🔨',
-//         estimatedTime: '1 day'
-//       },
-//       {
-//         step: 3,
-//         title: 'Creation Process',
-//         description: storyData.creationProcess || 'Meticulous handcrafting using ancestral methods',
-//         icon: '✋',
-//         estimatedTime: '5-7 days'
-//       },
-//       {
-//         step: 4,
-//         title: 'Finishing Touches',
-//         description: 'Final detailing and quality assurance',
-//         icon: '✨',
-//         estimatedTime: '1-2 days'
-//       },
-//       {
-//         step: 5,
-//         title: 'Story Preservation',
-//         description: 'Documentation and cultural context recording',
-//         icon: '📜',
-//         estimatedTime: '1 day'
-//       }
-//     ];
-//     setStoryTimeline(timelineSteps);
-//   };
-
-//   const submitStoryForPreservation = async (e) => {
-//     e.preventDefault();
-//     setLoading(true);
-
-//     try {
-//       const response = await axios.post(`${API_URL}/api/preserve-story`, {
-//         ...storyData,
-//         mediaFiles,
-//         timeline: storyTimeline
-//       });
-
-//       const { story, message } = response.data;
-//       setGeneratedStory(story);
-//       setHeritageScore(story.heritageScore);
-      
-//       const verificationResponse = await axios.post(`${API_URL}/api/verify-heritage`, { storyId: story.id });
-//       setVerificationStatus(verificationResponse.data);
-
-//       socketRef.current.emit('new_story_submitted', {
-//         storyId: story.id,
-//         artisan: storyData.artisanName,
-//         craftType: storyData.craftType
-//       });
-
-//       setArPreview(true);
-//     } catch (error) {
-//       console.error('Failed to preserve story:', error);
+//       setError(err.response?.data?.error || 'Image upload failed. Please ensure the file is a valid image (JPEG, PNG, GIF, BMP, or WebP).');
 //     } finally {
-//       setLoading(false);
+//       setIsUploading(false);
 //     }
 //   };
 
-//   const StoryPreservationForm = () => (
-//     <form onSubmit={submitStoryForPreservation} className="story-collection-form">
-//       <div className="narrative-builder">
-//         <div className="story-input-group">
-//           <label htmlFor="craftType">Craft Type</label>
-//           <input
-//             type="text"
-//             name="craftType"
-//             value={storyData.craftType}
-//             onChange={handleStoryInputChange}
-//             placeholder="e.g., Pottery, Textile Arts"
-//             className="story-input"
-//             required
-//           />
-//         </div>
-//         <div className="story-input-group">
-//           <label htmlFor="artisanName">Artisan Name</label>
-//           <input
-//             type="text"
-//             name="artisanName"
-//             value={storyData.artisanName}
-//             onChange={handleStoryInputChange}
-//             placeholder="Your name"
-//             className="story-input"
-//             required
-//           />
-//         </div>
-//         <div className="story-input-group">
-//           <label htmlFor="workshopLocation">Workshop Location</label>
-//           <input
-//             type="text"
-//             name="workshopLocation"
-//             value={storyData.workshopLocation}
-//             onChange={handleStoryInputChange}
-//             placeholder="e.g., Rann of Kutch, India"
-//             className="story-input"
-//           />
-//         </div>
-//         <div className="story-input-group">
-//           <label htmlFor="craftDescription">Craft Description</label>
-//           <textarea
-//             name="craftDescription"
-//             value={storyData.craftDescription}
-//             onChange={handleStoryInputChange}
-//             placeholder="Describe your craft..."
-//             className="story-input"
-//             rows="4"
-//           />
-//         </div>
-//         <div className="story-input-group">
-//           <label htmlFor="culturalSignificance">Cultural Significance</label>
-//           <textarea
-//             name="culturalSignificance"
-//             value={storyData.culturalSignificance}
-//             onChange={handleStoryInputChange}
-//             placeholder="Share the cultural importance..."
-//             className="story-input"
-//             rows="4"
-//           />
-//         </div>
-//         <div className="story-input-group">
-//           <label htmlFor="creationProcess">Creation Process</label>
-//           <textarea
-//             name="creationProcess"
-//             value={storyData.creationProcess}
-//             onChange={handleStoryInputChange}
-//             placeholder="How was this craft made?"
-//             className="story-input"
-//             rows="4"
-//           />
-//         </div>
-//         <div className="story-input-group">
-//           <label htmlFor="materialsUsed">Materials Used</label>
-//           <textarea
-//             name="materialsUsed"
-//             value={storyData.materialsUsed}
-//             onChange={handleStoryInputChange}
-//             placeholder="List the materials used..."
-//             className="story-input"
-//             rows="4"
-//           />
-//         </div>
-//         <div className="story-input-group">
-//           <label htmlFor="personalJourney">Personal Journey</label>
-//           <textarea
-//             name="personalJourney"
-//             value={storyData.personalJourney}
-//             onChange={handleStoryInputChange}
-//             placeholder="Share your journey as an artisan..."
-//             className="story-input"
-//             rows="4"
-//           />
-//         </div>
-//         <div className="story-input-group">
-//           <label htmlFor="familyTradition">Family Tradition</label>
-//           <textarea
-//             name="familyTradition"
-//             value={storyData.familyTradition}
-//             onChange={handleStoryInputChange}
-//             placeholder="Describe any family traditions..."
-//             className="story-input"
-//             rows="4"
-//           />
-//         </div>
-//         <div className="story-input-group">
-//           <label htmlFor="inspirationSource">Inspiration Source</label>
-//           <textarea
-//             name="inspirationSource"
-//             value={storyData.inspirationSource}
-//             onChange={handleStoryInputChange}
-//             placeholder="What inspired this craft?"
-//             className="story-input"
-//             rows="4"
-//           />
-//         </div>
-//       </div>
+//   const handleDrag = (e) => {
+//     e.preventDefault();
+//     e.stopPropagation();
+//     if (e.type === 'dragenter' || e.type === 'dragover') setDragActive(true);
+//     else if (e.type === 'dragleave') setDragActive(false);
+//   };
 
-//       <div className="story-input-group">
-//         <label>Upload Media (Images/Videos)</label>
-//         <input
-//           type="file"
-//           accept="image/*,video/*"
-//           multiple
-//           onChange={handleMediaUpload}
-//           ref={mediaInputRef}
-//           className="story-input"
-//         />
-//         <div className="media-preview">
-//           {mediaFiles.map(file => (
-//             <div key={file.id} className="media-item">
-//               {file.type === 'image' ? (
-//                 <img src={file.url} alt="Preview" style={{ maxWidth: '100px', maxHeight: '100px' }} />
-//               ) : (
-//                 <video src={file.url} controls style={{ maxWidth: '100px', maxHeight: '100px' }} />
-//               )}
-//               <button onClick={() => removeMedia(file.id)}>Remove</button>
-//             </div>
-//           ))}
-//         </div>
-//       </div>
+//   const handleDrop = (e) => {
+//     e.preventDefault();
+//     e.stopPropagation();
+//     setDragActive(false);
+//     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+//       handleImageUpload(e.dataTransfer.files[0]);
+//     }
+//   };
 
-//       <div className="story-input-group">
-//         <label>Record Audio Narration</label>
-//         <button
-//           onClick={startAudioRecording}
-//           disabled={isRecording}
-//           className="story-action-btn"
-//         >
-//           {isRecording ? 'Recording...' : 'Start Recording'}
-//         </button>
-//         {audioBlob && (
-//           <audio controls src={URL.createObjectURL(audioBlob)} ref={audioRef} />
-//         )}
-//       </div>
+//   const handleAiSuggestion = () => {
+//     if (!formData.craftType || !formData.materialsUsed) {
+//       setError("Please enter a Craft Type and Materials Used to get a suggestion.");
+//       return;
+//     }
+//     const suggestion = `This ${formData.craftType} is a testament to traditional artisanship, meticulously crafted from ${formData.materialsUsed}. Each piece embodies a rich cultural heritage, telling a story passed down through generations.`;
+//     setFormData({ ...formData, culturalSignificance: suggestion });
+//   };
 
-//       <div className="story-input-group" style={{ gridColumn: '1 / -1', textAlign: 'center' }}>
-//         <button 
-//           type="submit" 
-//           className="upload-btn story-submit-btn"
-//           disabled={loading}
-//         >
-//           {loading ? (
-//             <>
-//               <div className="story-spinner" style={{ width: '20px', height: '20px', marginRight: '10px', display: 'inline-block' }}></div>
-//               Preserving Your Story...
-//             </>
-//           ) : (
-//             'Preserve This Story Forever'
-//           )}
-//         </button>
-//       </div>
-//     </form>
-//   );
-
-//   if (generatedStory) {
-//     return (
-//       <div className="story-success">
-//         <div className="success-icon">✨</div>
-//         <h2>Your Story Has Been Preserved!</h2>
-//         <p>Story ID: {generatedStory.id}</p>
-//         <p>Heritage Score: {heritageScore}%</p>
-//         <div className="verification-status">
-//           <div className="verification-icon">✅</div>
-//           <span>Blockchain Verified</span>
-//         </div>
-        
-//         {arPreview && (
-//           <div className="immersive-ar-container">
-//             <model-viewer
-//               src={generatedStory.arModelUrl || "https://modelviewer.dev/shared-assets/models/Astronaut.glb"}
-//               alt="Preserved Craft Story"
-//               ar
-//               ar-modes="webxr scene-viewer quick-look"
-//               camera-controls
-//               auto-rotate
-//               shadow-intensity="1"
-//               exposure="0.8"
-//               environment-image="neutral"
-//             >
-//               <div className="cultural-heritage-badge" slot="hotspot-1">
-//                 Heritage Score: {heritageScore}%
-//               </div>
-              
-//               <div className="story-annotation" slot="hotspot-2" style={{ top: '20%', left: '20%' }}>
-//                 <strong>Tradition:</strong> {storyData.craftType}
-//               </div>
-//               <div className="story-annotation" slot="hotspot-3" style={{ top: '60%', right: '20%' }}>
-//                 <strong>Artisan:</strong> {storyData.artisanName}
-//               </div>
-//               <div className="story-annotation" slot="hotspot-4" style={{ bottom: '20%', left: '20%' }}>
-//                 <strong>Preserved:</strong> {new Date().toLocaleDateString()}
-//               </div>
-              
-//               <button slot="ar-button" className="ar-button">View in Your Space</button>
-//             </model-viewer>
-            
-//             <div className="ar-story-overlay">
-//               <h3>{generatedStory.title}</h3>
-//               <p>{generatedStory.summary}</p>
-//             </div>
-//           </div>
-//         )}
-
-//         <div className="story-audio-player">
-//           <div className="audio-waveform">
-//             <div className="audio-wave"></div>
-//           </div>
-//           <div className="audio-controls">
-//             <button className="audio-btn" onClick={() => speak(generatedStory.fullStory)}>
-//               ▶️
-//             </button>
-//             <button className="audio-btn" onClick={stop} disabled={!isSpeaking}>
-//               ⏹️
-//             </button>
-//             <div className="audio-progress">
-//               <div className="audio-progress-fill"></div>
-//             </div>
-//             <span>{isSpeaking ? 'Speaking...' : 'Play Story'}</span>
-//           </div>
-//         </div>
-
-//         {verificationStatus && (
-//           <div className="story-verification-panel">
-//             <h3>Blockchain Verification Complete</h3>
-//             <div className="verification-details">
-//               <div className="verification-item">
-//                 <strong>Transaction Hash:</strong>
-//                 <code>{verificationStatus.transactionHash}</code>
-//               </div>
-//               <div className="verification-item">
-//                 <strong>Smart Contract:</strong>
-//                 <code>{verificationStatus.contractAddress}</code>
-//               </div>
-//               <div className="verification-item">
-//                 <strong>Token ID:</strong>
-//                 <span>{verificationStatus.tokenId}</span>
-//               </div>
-//               <div className="verification-item">
-//                 <strong>Heritage Registry:</strong>
-//                 <span>{verificationStatus.registryId}</span>
-//               </div>
-//             </div>
-//           </div>
-//         )}
-
-//         <div style={{ textAlign: 'center', marginTop: '40px' }}>
-//           <button 
-//             className="upload-btn"
-//             onClick={() => {
-//               setGeneratedStory(null);
-//               setStoryData({
-//                 craftType: '',
-//                 artisanName: '',
-//                 workshopLocation: '',
-//                 craftDescription: '',
-//                 culturalSignificance: '',
-//                 creationProcess: '',
-//                 materialsUsed: '',
-//                 personalJourney: '',
-//                 familyTradition: '',
-//                 inspirationSource: ''
-//               });
-//               setMediaFiles([]);
-//               setStoryTimeline([]);
-//               setHeritageScore(0);
-//             }}
-//           >
-//             Create Another Story
-//           </button>
-//         </div>
-//       </div>
-//     );
-//   }
+//   const handleSubmitStory = async (e) => {
+//     e.preventDefault();
+//     if (!uploadedImage) {
+//       setError('Please upload an image before submitting.');
+//       return;
+//     }
+//     setIsSubmitting(true);
+//     setError(null);
+//     try {
+//       const response = await axiosInstance.post('/api/preserve-story', {
+//         ...formData,
+//         images: [{ processed: uploadedImage }],
+//       });
+//       setSubmissionResult(response.data);
+//       setFormData({ craftType: '', artisanName: '', workshopLocation: '', materialsUsed: '', creationProcess: '', culturalSignificance: '' });
+//       setUploadedImage(null);
+//     } catch (err) {
+//       setSubmissionResult({ success: false, error: err.response?.data?.error || 'Server error.' });
+//     } finally {
+//       setIsSubmitting(false);
+//     }
+//   };
 
 //   return (
-//     <motion.div 
-//       initial={{ opacity: 0 }} 
-//       animate={{ opacity: 1}} 
-//       transition={{ duration: 0.8 }}
-//       className="story-card"
-//     >
-//       <StoryPreservationForm />
-//     </motion.div>
+//     <div className="wizard-container">
+//       {error && <div className="auth-error"><strong>Error:</strong> {error}</div>}
+      
+//       <form onSubmit={handleSubmitStory} className="wizard-form-step">
+//         <h2 className="form-section-title">Step 1: Tell Your Craft's Story</h2>
+//         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+//           <div className="story-input-group"><label>Artisan Name</label><input name="artisanName" value={formData.artisanName} onChange={handleInputChange} required className="story-input" placeholder="e.g., Jivya Soma Mashe"/></div>
+//           <div className="story-input-group"><label>Workshop Location</label><input name="workshopLocation" value={formData.workLocation} onChange={handleInputChange} required className="story-input" placeholder="e.g., Maharashtra, India"/></div>
+//         </div>
+//         <div className="story-input-group"><label>Type of Craft</label><input name="craftType" value={formData.craftType} onChange={handleInputChange} required className="story-input" placeholder="e.g., Warli Painting"/></div>
+//         <div className="story-input-group"><label>Materials Used</label><textarea name="materialsUsed" value={formData.materialsUsed} onChange={handleInputChange} required className="story-input" rows="3" placeholder="e.g., Rice paste, charcoal, natural dyes..."/></div>
+        
+//         <div className="story-input-group">
+//           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+//             <label>Cultural Significance</label>
+//             <button type="button" className="form-footer-button" onClick={handleAiSuggestion}>✨ Suggest Description with AI</button>
+//           </div>
+//           <textarea name="culturalSignificance" value={formData.culturalSignificance} onChange={handleInputChange} required className="story-input" rows="4" placeholder="Explain the meaning, history, and purpose of the symbols..."/>
+//         </div>
+        
+//         <div className="story-input-group"><label>Creation Process</label><textarea name="creationProcess" value={formData.creationProcess} onChange={handleInputChange} className="story-input" rows="4" placeholder="Briefly describe the steps to create the piece..."/></div>
+
+//         <h2 className="form-section-title" style={{ marginTop: '2.5rem' }}>Step 2: Upload an Image</h2>
+//         <div className="story-input-group">
+//           <div className={`drag-drop-zone ${dragActive ? 'drag-over' : ''}`} onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop} onClick={() => fileInputRef.current.click()}>
+//             <p>Drag & drop an image here or click to select</p>
+//             <small style={{ color: 'var(--text-secondary)' }}>Supported formats: JPEG, PNG, GIF, BMP, WebP (up to 25MB)</small>
+//             <input type="file" ref={fileInputRef} accept="image/*" onChange={(e) => handleImageUpload(e.target.files[0])} style={{ display: 'none' }} disabled={isUploading}/>
+//           </div>
+//           {isUploading && <p className="upload-progress"><span className="spinner"></span> Uploading...</p>}
+          
+//           {uploadedImage && (
+//             <div className="uploaded-image-item" style={{ marginTop: '1rem' }}>
+//               <h4 style={{ textAlign: 'center', marginBottom: '1rem' }}>Image Preview</h4>
+//               <img src={uploadedImage.url} alt="Uploaded craft" className="uploaded-image-preview" style={{ width: '100%', maxHeight: '300px', objectFit: 'contain', borderRadius: '1rem' }}/>
+//               <p style={{ textAlign: 'center', fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '1rem' }}>A 3D model will be generated after the story is preserved.</p>
+//             </div>
+//           )}
+//         </div>
+        
+//         <div className="wizard-navigation" style={{ marginTop: '2.5rem' }}>
+//           <button type="submit" className="wizard-nav-btn primary" disabled={isSubmitting || isUploading || !uploadedImage}>
+//             {isSubmitting ? 'Preserving...' : '✨ Generate & Preserve Story'}
+//           </button>
+//         </div>
+//       </form>
+
+//       <AnimatePresence>
+//         {submissionResult && (
+//           <motion.div className="story-success-card" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+//             <h3>{submissionResult.success ? 'AI Story Generated!' : 'Submission Failed'}</h3>
+//             {submissionResult.success ? (
+//               <div>
+//                 <h4>{submissionResult.story.title}</h4>
+//                 <p><strong>Summary:</strong> {submissionResult.story.summary}</p>
+//                 <p>This story is now available in the Heritage Gallery.</p>
+//               </div>
+//             ) : (<p className="auth-error"><strong>Error:</strong> {submissionResult.error}</p>)}
+//           </motion.div>
+//         )}
+//       </AnimatePresence>
+//     </div>
 //   );
-// }
+// };
 
 // export default SellerProfile;
-
-
-
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
-import { uploadImage, validateImageFile } from './utils/uploadUtils';
 
 const API_URL = 'http://localhost:3001';
 
-const steps = ["The Craft", "The Artisan", "The Process", "Upload Images", "Finalize"];
-
-function SellerProfile() {
-  const [currentStep, setCurrentStep] = useState(0);
+const SellerProfile = () => {
   const [formData, setFormData] = useState({
     craftType: '',
     artisanName: '',
     workshopLocation: '',
-    culturalSignificance: '',
-    creationProcess: '',
     materialsUsed: '',
+    creationProcess: '',
+    culturalSignificance: '',
   });
-  const [uploadedImages, setUploadedImages] = useState([]);
-  const [uploadingImages, setUploadingImages] = useState(false);
-  const [submissionState, setSubmissionState] = useState({ status: 'idle', story: null });
+  const [uploadedImage, setUploadedImage] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionResult, setSubmissionResult] = useState(null);
+  const [error, setError] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef(null);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+  const axiosInstance = axios.create({
+    baseURL: API_URL,
+    headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` },
+  });
+
+  const handleInputChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setError(null);
   };
 
-  const nextStep = () => setCurrentStep(prev => (prev < steps.length - 1 ? prev + 1 : prev));
-  const prevStep = () => setCurrentStep(prev => (prev > 0 ? prev - 1 : prev));
+  const handleImageUpload = async (file) => {
+    if (!file) {
+      setError('No file selected.');
+      console.error('❌ No file selected');
+      return;
+    }
 
-  const handleImageUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
+    console.log(`Uploading file: ${file.name}, Type: ${file.type}, Size: ${file.size} bytes`);
 
-    setUploadingImages(true);
+    const maxSize = 16 * 1024 * 1024; // 16MB
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setError('Unsupported file type. Please upload a JPEG, PNG, GIF, BMP, or WebP image.');
+      console.error(`❌ Unsupported file type: ${file.type}`);
+      return;
+    }
+    if (file.size > maxSize) {
+      setError(`File is too large. Maximum size is 16MB.`);
+      console.error(`❌ File too large: ${file.size} bytes`);
+      return;
+    }
+
+    // Basic file integrity check
+    if (file.size === 0) {
+      setError('File is empty. Please upload a valid image.');
+      console.error('❌ File is empty');
+      return;
+    }
+
+    setIsUploading(true);
+    setError(null);
+    const uploadFormData = new FormData();
+    uploadFormData.append('image', file);
+
     try {
-      const uploadPromises = files.map(async (file) => {
-        validateImageFile(file);
-        const result = await uploadImage(file);
-        return {
-          id: Date.now() + Math.random(),
-          original: result.original,
-          processed: result.processed,
-          arPreview: result.arPreview
-        };
+      const response = await axiosInstance.post('/api/upload-image', uploadFormData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
-
-      const results = await Promise.all(uploadPromises);
-      setUploadedImages(prev => [...prev, ...results]);
-    } catch (error) {
-      console.error('Upload failed:', error);
-      alert(`Upload failed: ${error.message}`);
+      setUploadedImage({
+        original: response.data.original,
+        processed: response.data.processed,
+        arPreview: response.data.arPreview
+      });
+      console.log('✅ Image uploaded successfully:', response.data);
+    } catch (err) {
+      const errorMessage = err.response?.data?.error || 'Image upload failed. Please ensure the file is a valid, non-corrupted image (JPEG, PNG, GIF, BMP, or WebP).';
+      setError(errorMessage);
+      console.error('❌ Image upload failed:', errorMessage);
     } finally {
-      setUploadingImages(false);
+      setIsUploading(false);
     }
   };
 
-  const removeImage = (id) => {
-    setUploadedImages(prev => prev.filter(img => img.id !== id));
-  };
-
-  const handleSubmit = async (e) => {
+  const handleDrag = (e) => {
     e.preventDefault();
-    setSubmissionState({ status: 'submitting', story: null });
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') setDragActive(true);
+    else if (e.type === 'dragleave') setDragActive(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleImageUpload(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleAiSuggestion = () => {
+    if (!formData.craftType || !formData.materialsUsed) {
+      setError("Please enter a Craft Type and Materials Used to get a suggestion.");
+      return;
+    }
+    const suggestion = `This ${formData.craftType} is a testament to traditional artisanship, meticulously crafted from ${formData.materialsUsed}. Each piece embodies a rich cultural heritage, telling a story passed down through generations.`;
+    setFormData({ ...formData, culturalSignificance: suggestion });
+  };
+
+  const handleSubmitStory = async (e) => {
+    e.preventDefault();
+    if (!uploadedImage) {
+      setError('Please upload an image before submitting.');
+      return;
+    }
+    setIsSubmitting(true);
+    setError(null);
     try {
-      const submissionData = {
+      const response = await axiosInstance.post('/api/preserve-story', {
         ...formData,
-        images: uploadedImages
-      };
-      const response = await axios.post(`${API_URL}/api/preserve-story`, submissionData);
-      setSubmissionState({ status: 'success', story: response.data.story });
-    } catch (error) {
-      console.error('Submission failed:', error);
-      setSubmissionState({ status: 'error', story: null });
+        images: [{ processed: uploadedImage.processed, original: uploadedImage.original, arPreview: uploadedImage.arPreview }],
+      });
+      setSubmissionResult(response.data);
+      setFormData({ craftType: '', artisanName: '', workshopLocation: '', materialsUsed: '', creationProcess: '', culturalSignificance: '' });
+      setUploadedImage(null);
+      console.log('✅ Story preserved successfully:', response.data);
+    } catch (err) {
+      const errorMessage = err.response?.data?.error || 'Server error.';
+      setSubmissionResult({ success: false, error: errorMessage });
+      console.error('❌ Story submission failed:', errorMessage);
+    } finally {
+      setIsSubmitting(false);
     }
   };
-
-  const handleReset = () => {
-    setFormData({ 
-      craftType: '', 
-      artisanName: '', 
-      workshopLocation: '',
-      culturalSignificance: '',
-      creationProcess: '',
-      materialsUsed: ''
-    });
-    setUploadedImages([]);
-    setCurrentStep(0);
-    setSubmissionState({ status: 'idle', story: null });
-  };
-
-  const renderStepContent = () => {
-    switch (currentStep) {
-      case 0:
-        return (
-          <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }}>
-            <h2 className="form-section-title font-serif">Tell us about the Craft</h2>
-            <div className="story-input-group">
-              <label>Craft Type</label>
-              <input name="craftType" value={formData.craftType} onChange={handleChange} className="story-input" placeholder="e.g., Paithani Saree Weaving" />
-            </div>
-          </motion.div>
-        );
-      case 1:
-        return (
-          <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }}>
-            <h2 className="form-section-title font-serif">Tell us about the Artisan</h2>
-            <div className="story-input-group">
-              <label>Artisan's Name</label>
-              <input name="artisanName" value={formData.artisanName} onChange={handleChange} className="story-input" placeholder="Your full name" />
-            </div>
-            <div className="story-input-group" style={{marginTop: '1.5rem'}}>
-              <label>Workshop Location</label>
-              <input name="workshopLocation" value={formData.workshopLocation} onChange={handleChange} className="story-input" placeholder="e.g., Paithan, Maharashtra" />
-            </div>
-          </motion.div>
-        );
-       case 2: // The Process
-        return (
-          <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }}>
-            <h2 className="form-section-title font-serif">Describe the Process & Significance</h2>
-            <div className="story-input-group">
-              <label>Creation Process</label>
-              <textarea name="creationProcess" value={formData.creationProcess} onChange={handleChange} className="story-input" placeholder="Describe how this craft is made, step by step..." />
-            </div>
-            <div className="story-input-group" style={{marginTop: '1.5rem'}}>
-              <label>Cultural Significance</label>
-              <textarea name="culturalSignificance" value={formData.culturalSignificance} onChange={handleChange} className="story-input" placeholder="What does this craft mean to your community or family?" />
-            </div>
-            <div className="story-input-group" style={{marginTop: '1.5rem'}}>
-              <label>Materials Used</label>
-              <textarea name="materialsUsed" value={formData.materialsUsed} onChange={handleChange} className="story-input" placeholder="List the materials and tools used in creating this craft..." />
-            </div>
-          </motion.div>
-        );
-      case 3: // Upload Images
-        return (
-          <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }}>
-            <h2 className="form-section-title font-serif">Upload Craft Images</h2>
-            <p className="text-secondary mb-4">Share photos of your craft to help preserve its visual story. Images will be stored securely in Google Cloud Storage.</p>
-            
-            <div className="story-input-group">
-              <label>Select Images</label>
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleImageUpload}
-                className="story-input"
-                disabled={uploadingImages}
-              />
-              {uploadingImages && (
-                <div className="upload-progress">
-                  <div className="spinner"></div>
-                  <span>Uploading images to cloud storage...</span>
-                </div>
-              )}
-            </div>
-
-            {uploadedImages.length > 0 && (
-              <div className="uploaded-images-grid">
-                {uploadedImages.map((image) => (
-                  <div key={image.id} className="uploaded-image-item">
-                    <img 
-                      src={image.processed.url} 
-                      alt="Uploaded craft" 
-                      className="uploaded-image-preview"
-                    />
-                    <button 
-                      onClick={() => removeImage(image.id)}
-                      className="remove-image-btn"
-                      type="button"
-                    >
-                      ×
-                    </button>
-                    <div className="image-info">
-                      <small>Stored in GCS</small>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </motion.div>
-        );
-      case 4: // Finalize
-        return (
-          <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }}>
-            <h2 className="form-section-title font-serif">Review and Preserve</h2>
-            <p className="text-secondary mb-4">You are about to permanently preserve this story on the heritage ledger. Please review your details before submitting.</p>
-            
-            <div className="review-summary">
-              <div className="review-item">
-                <strong>Craft Type:</strong> {formData.craftType}
-              </div>
-              <div className="review-item">
-                <strong>Artisan:</strong> {formData.artisanName}
-              </div>
-              <div className="review-item">
-                <strong>Location:</strong> {formData.workshopLocation}
-              </div>
-              <div className="review-item">
-                <strong>Images Uploaded:</strong> {uploadedImages.length} images stored in Google Cloud Storage
-              </div>
-            </div>
-          </motion.div>
-        );
-      default:
-        return null;
-    }
-  };
-  
-  if (submissionState.status === 'success') {
-    return (
-      <div className="wizard-container">
-        <motion.div className="story-success-card" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}>
-          <div className="success-icon">🎉</div>
-          <h2 className="success-title font-serif">Story Preserved!</h2>
-          <p className="text-secondary mt-2 mb-6">Your craft's legacy is now secured. Thank you for sharing your heritage with the world.</p>
-          <div className="success-actions">
-            <button className="wizard-nav-btn" onClick={handleReset}>Create Another Story</button>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
 
   return (
     <div className="wizard-container">
-      <div className="wizard-progress">
-        {steps.map((step, index) => (
-          <div key={index} className={`wizard-step ${index === currentStep ? 'active' : ''}`}>
-            <div className="wizard-step-circle">{index + 1}</div>
-            <div className="wizard-step-label">{step}</div>
+      {error && <div className="auth-error"><strong>Error:</strong> {error}</div>}
+      
+      <form onSubmit={handleSubmitStory} className="wizard-form-step">
+        <h2 className="form-section-title">Step 1: Tell Your Craft's Story</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+          <div className="story-input-group"><label>Artisan Name</label><input name="artisanName" value={formData.artisanName} onChange={handleInputChange} required className="story-input" placeholder="e.g., Jivya Soma Mashe"/></div>
+          <div className="story-input-group"><label>Workshop Location</label><input name="workshopLocation" value={formData.workshopLocation} onChange={handleInputChange} required className="story-input" placeholder="e.g., Maharashtra, India"/></div>
+        </div>
+        <div className="story-input-group"><label>Type of Craft</label><input name="craftType" value={formData.craftType} onChange={handleInputChange} required className="story-input" placeholder="e.g., Warli Painting"/></div>
+        <div className="story-input-group"><label>Materials Used</label><textarea name="materialsUsed" value={formData.materialsUsed} onChange={handleInputChange} required className="story-input" rows="3" placeholder="e.g., Rice paste, charcoal, natural dyes..."/></div>
+        
+        <div className="story-input-group">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label>Cultural Significance</label>
+            <button type="button" className="form-footer-button" onClick={handleAiSuggestion}>✨ Suggest Description with AI</button>
           </div>
-        ))}
-      </div>
+          <textarea name="culturalSignificance" value={formData.culturalSignificance} onChange={handleInputChange} required className="story-input" rows="4" placeholder="Explain the meaning, history, and purpose of the symbols..."/>
+        </div>
+        
+        <div className="story-input-group"><label>Creation Process</label><textarea name="creationProcess" value={formData.creationProcess} onChange={handleInputChange} className="story-input" rows="4" placeholder="Briefly describe the steps to create the piece..."/></div>
 
-      <div className="wizard-form-step">
-        <AnimatePresence mode="wait">
-          <motion.div key={currentStep}>
-            {renderStepContent()}
-          </motion.div>
-        </AnimatePresence>
-
-        <div className="wizard-navigation">
-          <button onClick={prevStep} disabled={currentStep === 0} className="wizard-nav-btn">
-            Back
-          </button>
-          {currentStep < steps.length - 1 ? (
-            <button onClick={nextStep} className="wizard-nav-btn primary">
-              Next
-            </button>
-          ) : (
-            <button onClick={handleSubmit} disabled={submissionState.status === 'submitting'} className="wizard-nav-btn primary">
-              {submissionState.status === 'submitting' ? 'Preserving...' : 'Preserve Story'}
-            </button>
+        <h2 className="form-section-title" style={{ marginTop: '2.5rem' }}>Step 2: Upload an Image</h2>
+        <div className="story-input-group">
+          <div className={`drag-drop-zone ${dragActive ? 'drag-over' : ''}`} onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop} onClick={() => fileInputRef.current.click()}>
+            <p>Drag & drop an image here or click to select</p>
+            <small style={{ color: 'var(--text-secondary)' }}>Supported formats: JPEG, PNG, GIF, BMP, WebP (up to 16MB)</small>
+            <input type="file" ref={fileInputRef} accept="image/jpeg,image/png,image/gif,image/bmp,image/webp" onChange={(e) => handleImageUpload(e.target.files[0])} style={{ display: 'none' }} disabled={isUploading}/>
+          </div>
+          {isUploading && <p className="upload-progress"><span className="spinner"></span> Uploading...</p>}
+          
+          {uploadedImage && (
+            <div className="uploaded-image-item" style={{ marginTop: '1rem' }}>
+              <h4 style={{ textAlign: 'center', marginBottom: '1rem' }}>Image Preview</h4>
+              <img src={uploadedImage.processed.url} alt="Uploaded craft" className="uploaded-image-preview" style={{ width: '100%', maxHeight: '300px', objectFit: 'contain', borderRadius: '1rem' }}/>
+              <p style={{ textAlign: 'center', fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '1rem' }}>A 3D model will be generated after the story is preserved.</p>
+            </div>
           )}
         </div>
-      </div>
+        
+        <div className="wizard-navigation" style={{ marginTop: '2.5rem' }}>
+          <button type="submit" className="wizard-nav-btn primary" disabled={isSubmitting || isUploading || !uploadedImage}>
+            {isSubmitting ? 'Preserving...' : '✨ Generate & Preserve Story'}
+          </button>
+        </div>
+      </form>
+
+      <AnimatePresence>
+        {submissionResult && (
+          <motion.div className="story-success-card" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+            <h3>{submissionResult.success ? 'AI Story Generated!' : 'Submission Failed'}</h3>
+            {submissionResult.success ? (
+              <div>
+                <h4>{submissionResult.story.title}</h4>
+                <p><strong>Summary:</strong> {submissionResult.story.summary}</p>
+                <p>This story is now available in the Heritage Gallery.</p>
+              </div>
+            ) : (<p className="auth-error"><strong>Error:</strong> {submissionResult.error}</p>)}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
-}
+};
 
 export default SellerProfile;

@@ -1,53 +1,67 @@
-import React, { useContext } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { UserContext } from '../App';
+import React, { useState } from 'react';
+import axios from 'axios';
 
-const LoginPage = () => {
-  const navigate = useNavigate();
-  const { login } = useContext(UserContext);
+const API_URL = 'http://localhost:3001';
 
-  const handleLogin = (e) => {
+function LoginPage() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleLogin = async (e) => {
     e.preventDefault();
-    // Mock user data and type on login. In a real app, this would come from your API.
-    const mockUserData = { email: e.target.email.value, name: 'Test User' };
-    const mockUserType = 'buyer'; // or 'seller', determined after API call
-    login(mockUserData, mockUserType);
-    navigate('/home');
+    setError('');
+    try {
+      // This calls the placeholder login route on your Flask backend
+      const response = await axios.post(`${API_URL}/api/login`, { username, password });
+      
+      if (response.data.success) {
+        // In a real app, you would save this token to localStorage
+        // and use it for authenticated requests.
+        const token = response.data.token;
+        console.log("Login successful! Token:", token);
+        localStorage.setItem('authToken', token);
+        
+        alert("Login successful! (Check console for mock token). You would be redirected now.");
+        // Redirect user to their dashboard, e.g., window.location.href = '/dashboard';
+      }
+    } catch (err) {
+      setError('Login failed. Please check your credentials.');
+      console.error('Login error:', err);
+    }
   };
 
   return (
     <div className="auth-container">
-      <motion.div
-        initial={{ opacity: 0, y: -50 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 50 }}
-        transition={{ duration: 0.5 }}
-      >
+      <div className="auth-card">
         <form onSubmit={handleLogin} className="auth-form">
-          <h2 className="form-title">Welcome Back</h2>
-          <p className="form-subtitle">Log in to continue your journey.</p>
-          <div className="input-group">
-            <input type="email" id="email" name="email" required placeholder="Email Address" />
+          <h2 className="form-title">Login to Your Account</h2>
+          <div className="input-group" style={{marginBottom: '1rem'}}>
+            <input 
+              type="text" 
+              value={username} 
+              onChange={(e) => setUsername(e.target.value)} 
+              placeholder="Username" 
+              required 
+              style={{width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ccc'}}
+            />
           </div>
-          <div className="input-group">
-            <input type="password" id="password" name="password" required placeholder="Password" />
+          <div className="input-group" style={{marginBottom: '1rem'}}>
+            <input 
+              type="password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              placeholder="Password" 
+              required 
+              style={{width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ccc'}}
+            />
           </div>
-          <motion.button
-            type="submit"
-            className="auth-button primary full-width"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            Login
-          </motion.button>
-          <p className="form-footer">
-            Don't have an account? <Link to="/signup">Sign Up</Link>
-          </p>
+          {error && <p style={{ color: 'red', textAlign: 'center' }}>{error}</p>}
+          <button type="submit" className="auth-button full-width">Login</button>
         </form>
-      </motion.div>
+      </div>
     </div>
   );
-};
+}
 
 export default LoginPage;

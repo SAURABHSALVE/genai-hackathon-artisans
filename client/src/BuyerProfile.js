@@ -1,431 +1,379 @@
+// import React, { useState } from 'react';
+// import { motion } from 'framer-motion';
+
+// const BuyerProfile = () => {
+//   const [filters, setFilters] = useState({
+//     category: 'all',
+//     location: 'all',
+//   });
+
+//   const crafts = [
+//     {
+//       id: 1,
+//       title: 'Warli Painting',
+//       description: 'Traditional tribal art from Maharashtra.',
+//       image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c',
+//       category: 'Painting',
+//       location: 'India',
+//     },
+//     {
+//       id: 2,
+//       title: 'Handcrafted Pottery',
+//       description: 'Unique clay vessels with intricate designs.',
+//       image: 'https://images.unsplash.com/photo-1582141387144-0f2a4e6e9504',
+//       category: 'Pottery',
+//       location: 'Mexico',
+//     },
+//     {
+//       id: 3,
+//       title: 'Woven Textile',
+//       description: 'Vibrant handwoven fabric with cultural motifs.',
+//       image: 'https://images.unsplash.com/photo-1568254183919-774068e7d2c9',
+//       category: 'Textile',
+//       location: 'Peru',
+//     },
+//   ];
+
+//   const handleFilterChange = (e) => {
+//     const { name, value } = e.target;
+//     setFilters((prev) => ({ ...prev, [name]: value }));
+//   };
+
+//   const filteredCrafts = crafts.filter((craft) => {
+//     return (
+//       (filters.category === 'all' || craft.category === filters.category) &&
+//       (filters.location === 'all' || craft.location === filters.location)
+//     );
+//   });
+
+//   const shareCraft = (craft) => {
+//     const shareData = {
+//       title: craft.title,
+//       text: craft.description,
+//       url: window.location.href,
+//     };
+//     if (navigator.share) {
+//       navigator.share(shareData).catch((err) => console.log('❌ Share error:', err));
+//     } else {
+//       console.log('✅ Mock share:', shareData);
+//     }
+//   };
+
+//   return (
+//     <div className="buyer-container">
+//       <h2 className="form-section-title">Discover Crafts</h2>
+//       <div className="filter-group">
+//         <select name="category" value={filters.category} onChange={handleFilterChange}>
+//           <option value="all">All Categories</option>
+//           <option value="Painting">Painting</option>
+//           <option value="Pottery">Pottery</option>
+//           <option value="Textile">Textile</option>
+//         </select>
+//         <select name="location" value={filters.location} onChange={handleFilterChange}>
+//           <option value="all">All Locations</option>
+//           <option value="India">India</option>
+//           <option value="Mexico">Mexico</option>
+//           <option value="Peru">Peru</option>
+//         </select>
+//       </div>
+//       <div className="craft-grid">
+//         {filteredCrafts.map((craft) => (
+//           <motion.div
+//             key={craft.id}
+//             className="craft-card"
+//             initial={{ opacity: 0, y: 20 }}
+//             animate={{ opacity: 1, y: 0 }}
+//             transition={{ duration: 0.3 }}
+//           >
+//             <img src={craft.image} alt={craft.title} className="craft-image" />
+//             <div className="craft-details">
+//               <h3 className="craft-title">{craft.title}</h3>
+//               <p className="craft-description">{craft.description}</p>
+//               <div className="share-buttons">
+//                 <button className="share-button" onClick={() => shareCraft(craft)}>
+//                   Share
+//                 </button>
+//               </div>
+//             </div>
+//           </motion.div>
+//         ))}
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default BuyerProfile;
+
+
+
 // import React, { useState, useEffect } from 'react';
 // import { motion, AnimatePresence } from 'framer-motion';
 // import axios from 'axios';
-// import { useTTS } from './hooks/useTTS';
 
 // const API_URL = 'http://localhost:3001';
 
-// // Redesigned Story Card component
-// const StoryCard = ({ story, onArClick, onSpeak }) => (
-//   <motion.div
-//     layout
-//     initial={{ opacity: 0, scale: 0.9 }}
-//     animate={{ opacity: 1, scale: 1 }}
-//     exit={{ opacity: 0, scale: 0.9 }}
-//     transition={{ duration: 0.3 }}
-//     className="story-card"
-//   >
-//     <div
-//       className="story-card-image-wrapper"
-//       style={{ backgroundImage: `url(${story.imageUrl})` }}
-//     ></div>
+// const StoryCard = ({ story, onArClick, onSpeak }) => {
+//   const arStatus = story.arModel?.status || 'failed';
+//   const arIsReady = arStatus !== 'failed' && story.arModelUrl;
 
-//     <div className="story-card-content">
-//       <h3 className="story-card-title">{story.title}</h3>
-//       <p className="story-artisan">
-//         by {story.artisanName} • {story.location}
-//       </p>
-
-//       <div className="story-metadata">
-//         <div>
-//           <span>Heritage Score</span>
-//           <span style={{ color: story.heritageColor, fontWeight: 'bold' }}>
-//             {story.heritageScore}%
-//           </span>
-//         </div>
-//         <div>
-//           <span>Rarity</span>
-//           <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>
-//             {story.rarityScore}%
-//           </span>
-//         </div>
-//       </div>
-
-//       <p className="story-summary">{story.summary}</p>
-
-//       <div className="story-actions">
-//         <button
-//           className="story-action-btn primary"
-//           onClick={() => onSpeak(story.summary)}
-//         >
-//           🎧 Hear Story
-//         </button>
-//         <button
-//           className="story-action-btn secondary"
-//           onClick={() => onArClick(story)}
-//         >
-//           🧭 View in AR
-//         </button>
-//       </div>
-//     </div>
-//   </motion.div>
-// );
-
-// // AR Modal component
-// const ArModal = ({ story, onClose, onSpeak }) => (
-//   <motion.div
-//     className="ar-modal-overlay"
-//     initial={{ opacity: 0 }}
-//     animate={{ opacity: 1 }}
-//     exit={{ opacity: 0 }}
-//   >
+//   return (
 //     <motion.div
-//       className="ar-modal"
-//       initial={{ scale: 0.8, y: 50 }}
-//       animate={{ scale: 1, y: 0 }}
-//       exit={{ scale: 0.8, y: 50 }}
-//       transition={{ type: 'spring', damping: 15, stiffness: 150 }}
+//       layout
+//       initial={{ opacity: 0 }}
+//       animate={{ opacity: 1 }}
+//       exit={{ opacity: 0 }}
+//       transition={{ duration: 0.5 }}
+//       className="craft-card"
 //     >
-//       <button className="modal-close" onClick={onClose}>
-//         &times;
-//       </button>
-
-//       <div className="ar-container">
-//         <model-viewer
-//           src={story.arModelUrl}
-//           alt={story.title}
-//           ar
-//           ar-modes="webxr scene-viewer quick-look"
-//           camera-controls
-//           auto-rotate
-//           shadow-intensity="1"
-//           exposure="1"
-//         ></model-viewer>
-//       </div>
-
-//       <div className="ar-story-details">
-//         <h3 className="font-serif">{story.title}</h3>
-//         <p className="story-artisan">by {story.artisanName}</p>
-//         <p>{story.summary}</p>
-
-//         <div className="ar-actions">
-//           <button
-//             className="story-action-btn primary"
-//             onClick={() => onSpeak(story.summary)}
-//           >
-//             🎧 Listen to Story
+//       <img src={story.imageUrl} alt={story.title} className="craft-image" />
+//       <div className="craft-details">
+//         <h3 className="craft-title">{story.title}</h3>
+//         <p className="story-artisan" style={{color: 'var(--text-secondary)', fontSize: '0.9rem'}}>
+//           by {story.artisanName} • {story.workshopLocation}
+//         </p>
+//         <p className="craft-description">{story.summary}</p>
+//         <div className="share-buttons" style={{marginTop: '1rem'}}>
+//           <button className="share-button" onClick={() => onSpeak(story.summary)}>
+//             Hear Story
 //           </button>
-//           <button className="story-action-btn secondary">
-//             💾 Save to Collection
-//           </button>
+//           {arIsReady ? (
+//             <button className="share-button secondary" onClick={() => onArClick(story)}>
+//               View in AR
+//             </button>
+//           ) : (
+//             <button className="share-button secondary" disabled>
+//               AR Not Available
+//             </button>
+//           )}
 //         </div>
 //       </div>
 //     </motion.div>
-//   </motion.div>
-// );
+//   );
+// };
 
-// function BuyerProfile() {
+
+// const BuyerProfile = () => {
 //   const [collection, setCollection] = useState([]);
 //   const [loading, setLoading] = useState(true);
-//   const [heritageCategories, setHeritageCategories] = useState([]);
 //   const [searchQuery, setSearchQuery] = useState('');
-//   const [filterCategory, setFilterCategory] = useState('all');
-//   const [arPreview, setArPreview] = useState(null);
-//   const { speak } = useTTS();
+//   const [error, setError] = useState(null);
+
+//   const speak = (text) => {
+//     if ('speechSynthesis' in window) {
+//       window.speechSynthesis.cancel(); // Stop any previous speech
+//       const utterance = new SpeechSynthesisUtterance(text);
+//       window.speechSynthesis.speak(utterance);
+//     } else {
+//       alert('Text-to-speech not supported in this browser.');
+//     }
+//   };
 
 //   useEffect(() => {
 //     const loadData = async () => {
 //       setLoading(true);
+//       setError(null);
 //       try {
-//         const [collectionRes, categoriesRes] = await Promise.all([
-//           axios.get(`${API_URL}/api/buyer-collection`),
-//           axios.get(`${API_URL}/api/heritage-categories`),
-//         ]);
-//         setCollection(collectionRes.data.collection || []);
-//         setHeritageCategories(categoriesRes.data.categories || []);
+//         const res = await axios.get(`${API_URL}/api/buyer-collection`);
+//         setCollection(res.data.collection || []);
 //       } catch (error) {
-//         console.error('Failed to load data:', error);
+//         setError('Failed to load collection. Please try again later.');
+//       } finally {
+//         setLoading(false);
 //       }
-//       setLoading(false);
 //     };
 //     loadData();
 //   }, []);
 
-//   const filteredCollection = collection.filter((item) => {
-//     const lowerQuery = searchQuery.toLowerCase();
-//     const matchesSearch =
-//       item.title.toLowerCase().includes(lowerQuery) ||
-//       item.artisanName.toLowerCase().includes(lowerQuery) ||
-//       item.craftType.toLowerCase().includes(lowerQuery);
-//     const matchesCategory =
-//       filterCategory === 'all' || item.heritageCategory === filterCategory;
-//     return matchesSearch && matchesCategory;
-//   });
+//   const filteredCollection = collection.filter(
+//     (item) =>
+//       item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+//       item.artisanName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+//       item.craftType?.toLowerCase().includes(searchQuery.toLowerCase())
+//   );
 
 //   return (
-//     <div className="page-container">
-//       <motion.div
-//         className="gallery-hero"
-//         initial={{ opacity: 0, y: -20 }}
-//         animate={{ opacity: 1, y: 0 }}
-//         transition={{ duration: 0.7 }}
-//       >
-//         <h1 className="font-serif">The Heritage Gallery</h1>
-//         <p>
-//           Discover and preserve authentic stories behind priceless artisan
-//           crafts from around the globe.
-//         </p>
-//       </motion.div>
-
-//       <section className="collection-controls">
-//         <div className="search-controls">
+//     <div className="buyer-container">
+//       <h2 className="form-section-title">The Heritage Gallery</h2>
+//        <div className="filter-group">
 //           <input
 //             type="text"
 //             placeholder="Search by title, artisan, craft..."
 //             value={searchQuery}
 //             onChange={(e) => setSearchQuery(e.target.value)}
-//             className="search-input"
+//             className="story-input"
 //             style={{ width: '300px' }}
 //           />
-//           <select
-//             value={filterCategory}
-//             onChange={(e) => setFilterCategory(e.target.value)}
-//             className="filter-select"
-//           >
-//             <option value="all">All Categories</option>
-//             {heritageCategories.map((cat) => (
-//               <option key={cat.id} value={cat.id}>
-//                 {cat.name}
-//               </option>
-//             ))}
-//           </select>
 //         </div>
-//       </section>
 
-//       <motion.div layout className="story-collection-grid">
-//         <AnimatePresence>
-//           {filteredCollection.map((story) => (
-//             <StoryCard
-//               key={story.id}
-//               story={story}
-//               onArClick={setArPreview}
-//               onSpeak={speak}
-//             />
-//           ))}
-//         </AnimatePresence>
-//       </motion.div>
+//       {error && (
+//         <div className="auth-error" style={{textAlign: 'center', padding: '1rem' }}>{error}</div>
+//       )}
 
-//       <AnimatePresence>
-//         {arPreview && (
-//           <ArModal
-//             story={arPreview}
-//             onClose={() => setArPreview(null)}
-//             onSpeak={speak}
-//           />
-//         )}
-//       </AnimatePresence>
+//       {loading ? (
+//         <div style={{ textAlign: 'center', padding: '4rem' }}>
+//           <span className="spinner" style={{ width: '40px', height: '40px', borderTopColor: 'var(--primary-glow)' }}></span>
+//           <p style={{marginTop: '1rem'}}>Loading Gallery...</p>
+//         </div>
+//       ) : (
+//         <motion.div layout className="craft-grid">
+//           <AnimatePresence>
+//             {filteredCollection.length > 0 ? (
+//               filteredCollection.map((story) => (
+//                 <StoryCard
+//                   key={story.id}
+//                   story={story}
+//                   onArClick={() => alert("AR functionality is a placeholder.")}
+//                   onSpeak={speak}
+//                 />
+//               ))
+//             ) : (
+//               <div style={{ textAlign: 'center', gridColumn: '1 / -1', padding: '2rem' }}>
+//                 <h2 className='form-title'>No Stories Found</h2>
+//                 <p className='form-subtitle'>Preserved stories will appear here once they are created by an artisan.</p>
+//               </div>
+//             )}
+//           </AnimatePresence>
+//         </motion.div>
+//       )}
 //     </div>
 //   );
-// }
+// };
 
 // export default BuyerProfile;
-
 
 
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
-import { useTTS } from './hooks/useTTS';
 
 const API_URL = 'http://localhost:3001';
 
-// A new, separate component for the image with fallback logic
-const CardMedia = ({ story, onArClick }) => {
-  const [imageError, setImageError] = useState(false);
-
-  // If the image URL fails, this function will be called
-  const handleImageError = () => {
-    setImageError(true);
-  };
+const StoryCard = ({ story, onArClick, onSpeak }) => {
+  const arStatus = story.arModel?.status || 'failed';
+  const arIsReady = arStatus !== 'failed' && story.arModelUrl;
 
   return (
-    <div className="card-media-wrapper">
-      {!imageError ? (
-        <img 
-          src={story.imageUrl} 
-          alt={story.title}
-          className="story-card-image" 
-          onError={handleImageError} 
-        />
-      ) : (
-        // This is the fallback: a static preview of the AR model
-        <div className="ar-fallback" onClick={() => onArClick(story)}>
-          <model-viewer
-            src={story.arModelUrl}
-            alt={story.title}
-            camera-controls={false}
-            auto-rotate={false}
-            interaction-prompt="none"
-          ></model-viewer>
-          <div className="ar-fallback-overlay">Click to View in AR</div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// The main Story Card component, now using CardMedia
-const StoryCard = ({ story, onArClick, onSpeak }) => (
-  <motion.div
-    layout
-    initial={{ opacity: 0, scale: 0.9 }}
-    animate={{ opacity: 1, scale: 1 }}
-    exit={{ opacity: 0, scale: 0.9 }}
-    transition={{ duration: 0.3 }}
-    className="story-card"
-  >
-    <CardMedia story={story} onArClick={onArClick} />
-    <div className="story-card-content">
-      <h3 className="story-card-title">{story.title}</h3>
-      <p className="story-artisan">by {story.artisanName} • {story.location}</p>
-      <div className="story-metadata">
-        <div>
-          <span>Heritage Score</span>
-          <span style={{ color: story.heritageColor, fontWeight: 'bold' }}>{story.heritageScore}%</span>
-        </div>
-        <div>
-          <span>Rarity</span>
-          <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>{story.rarityScore}%</span>
-        </div>
-      </div>
-      <p className="story-summary">{story.summary}</p>
-      <div className="story-actions">
-        <button className="story-action-btn primary" onClick={() => onSpeak(story.summary)}>Hear Story</button>
-        <button className="story-action-btn secondary" onClick={() => onArClick(story)}>View in AR</button>
-      </div>
-    </div>
-  </motion.div>
-);
-
-// The polished AR Modal with the fixed "View in your space" button
-const ArModal = ({ story, onClose, onSpeak }) => (
-  <motion.div
-    className="ar-modal-overlay"
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    exit={{ opacity: 0 }}
-  >
-    <motion.div 
-      className="ar-modal"
-      initial={{ scale: 0.8, y: 50 }}
-      animate={{ scale: 1, y: 0 }}
-      exit={{ scale: 0.8, y: 50 }}
-      transition={{ type: 'spring', damping: 15, stiffness: 150 }}
+    <motion.div
+      layout
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.5 }}
+      className="craft-card"
     >
-      <button className="modal-close" onClick={onClose}>&times;</button>
-      <div className="ar-container">
-        <model-viewer
-          src={story.arModelUrl}
-          ios-src="" // For iOS Quick Look
-          alt={story.title}
-          ar
-          ar-modes="webxr scene-viewer quick-look"
-          camera-controls
-          auto-rotate
-          shadow-intensity="1"
-          exposure="1"
-        >
-          {/* This button is the key to fixing the AR view */}
-          <button slot="ar-button" id="ar-button">
-            View in your space
+      <img src={story.imageUrl} alt={story.title} className="craft-image" />
+      <div className="craft-details">
+        <h3 className="craft-title">{story.title}</h3>
+        <p className="story-artisan" style={{color: 'var(--text-secondary)', fontSize: '0.9rem'}}>
+          by {story.artisanName} • {story.workshopLocation}
+        </p>
+        <p className="craft-description">{story.summary}</p>
+        <div className="share-buttons" style={{marginTop: '1rem'}}>
+          <button className="share-button" onClick={() => onSpeak(story.summary)}>
+            Hear Story
           </button>
-        </model-viewer>
-      </div>
-      <div className="ar-story-details">
-        <h3 className="font-serif">{story.title}</h3>
-        <p className="story-artisan">by {story.artisanName}</p>
-        <p>{story.summary}</p>
-        <div className="ar-actions">
-          <button className="story-action-btn primary" onClick={() => onSpeak(story.summary)}>
-            🎧 Listen to Story
-          </button>
-          <button className="story-action-btn secondary">
-            💾 Save to Collection
-          </button>
+          {arIsReady ? (
+            <button className="share-button secondary" onClick={() => onArClick(story)}>
+              View in AR
+            </button>
+          ) : (
+            <button className="share-button secondary" disabled>
+              AR Not Available
+            </button>
+          )}
         </div>
       </div>
     </motion.div>
-  </motion.div>
-);
+  );
+};
 
-function BuyerProfile() {
+
+const BuyerProfile = () => {
   const [collection, setCollection] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [heritageCategories, setHeritageCategories] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterCategory, setFilterCategory] = useState('all');
-  const [arPreview, setArPreview] = useState(null);
-  const { speak } = useTTS();
+  const [error, setError] = useState(null);
+
+  const speak = (text) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel(); // Stop any previous speech
+      const utterance = new SpeechSynthesisUtterance(text);
+      window.speechSynthesis.speak(utterance);
+    } else {
+      alert('Text-to-speech not supported in this browser.');
+    }
+  };
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
+      setError(null);
       try {
-        const [collectionRes, categoriesRes] = await Promise.all([
-          axios.get(`${API_URL}/api/buyer-collection`),
-          axios.get(`${API_URL}/api/heritage-categories`)
-        ]);
-        setCollection(collectionRes.data.collection || []);
-        setHeritageCategories(categoriesRes.data.categories || []);
-      } catch (error) { console.error('Failed to load data:', error); }
-      setLoading(false);
+        const res = await axios.get(`${API_URL}/api/buyer-collection`);
+        setCollection(res.data.collection || []);
+      } catch (error) {
+        setError('Failed to load collection. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
     };
     loadData();
   }, []);
 
-  const filteredCollection = collection.filter(item => {
-    const lowerQuery = searchQuery.toLowerCase();
-    const matchesSearch = item.title.toLowerCase().includes(lowerQuery) ||
-                         item.artisanName.toLowerCase().includes(lowerQuery) ||
-                         item.craftType.toLowerCase().includes(lowerQuery);
-    const matchesCategory = filterCategory === 'all' || item.heritageCategory === filterCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredCollection = collection.filter(
+    (item) =>
+      item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.artisanName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.craftType?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <div className="page-container">
-      <motion.div 
-        className="gallery-hero"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7 }}
-      >
-        <h1 className="font-serif">The Heritage Gallery</h1>
-        <p>Discover and preserve authentic stories behind priceless artisan crafts from around the globe.</p>
-      </motion.div>
-
-      <section className="collection-controls">
-        <div className="search-controls">
+    <div className="buyer-container">
+      <h2 className="form-section-title">The Heritage Gallery</h2>
+       <div className="filter-group">
           <input
             type="text"
             placeholder="Search by title, artisan, craft..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
+            className="story-input"
             style={{ width: '300px' }}
           />
-          <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="filter-select">
-            {heritageCategories.map(cat => (
-              <option key={cat.id} value={cat.id}>{cat.name}</option>
-            ))}
-          </select>
         </div>
-      </section>
 
-      <motion.div layout className="story-collection-grid">
-        <AnimatePresence>
-          {filteredCollection.map(story => (
-            <StoryCard key={story.id} story={story} onArClick={setArPreview} onSpeak={speak} />
-          ))}
-        </AnimatePresence>
-      </motion.div>
+      {error && (
+        <div className="auth-error" style={{textAlign: 'center', padding: '1rem' }}>{error}</div>
+      )}
 
-      <AnimatePresence>
-        {arPreview && <ArModal story={arPreview} onClose={() => setArPreview(null)} onSpeak={speak} />}
-      </AnimatePresence>
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '4rem' }}>
+          <span className="spinner" style={{ width: '40px', height: '40px', borderTopColor: 'var(--primary-glow)' }}></span>
+          <p style={{marginTop: '1rem'}}>Loading Gallery...</p>
+        </div>
+      ) : (
+        <motion.div layout className="craft-grid">
+          <AnimatePresence>
+            {filteredCollection.length > 0 ? (
+              filteredCollection.map((story) => (
+                <StoryCard
+                  key={story.id}
+                  story={story}
+                  onArClick={() => alert("AR functionality is a placeholder.")}
+                  onSpeak={speak}
+                />
+              ))
+            ) : (
+              <div style={{ textAlign: 'center', gridColumn: '1 / -1', padding: '2rem' }}>
+                <h2 className='form-title'>No Stories Found</h2>
+                <p className='form-subtitle'>Preserved stories will appear here once they are created by an artisan.</p>
+              </div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      )}
     </div>
   );
-}
+};
 
 export default BuyerProfile;
