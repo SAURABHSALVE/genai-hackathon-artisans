@@ -837,6 +837,571 @@
 
 
 
+# import os
+# import json
+# import uuid
+# import mimetypes
+# from io import BytesIO
+# from datetime import datetime
+# from dotenv import load_dotenv
+# from flask import Flask, request, jsonify, send_file
+# from flask_cors import CORS
+# from flask_sqlalchemy import SQLAlchemy
+# from flask_bcrypt import Bcrypt
+# from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity, get_jwt
+# from flask_socketio import SocketIO
+# import random
+# from services.image_service import ImageService
+
+# try:
+#     import pg8000
+#     from google.cloud import storage
+#     import vertexai
+#     from vertexai.generative_models import GenerativeModel, Part
+# except ImportError:
+#     pg8000, storage, vertexai, GenerativeModel, Part = None, None, None, None, None
+
+# # Load environment variables
+# load_dotenv()
+
+# app = Flask(__name__)
+
+# # Configure app from environment variables
+# max_file_size = int(os.getenv('MAX_FILE_SIZE', 16777216))  # 16MB default
+# app.config.from_mapping(
+#     SECRET_KEY=os.getenv('SECRET_KEY', 'genx-story-preservation-2025'),
+#     SQLALCHEMY_TRACK_MODIFICATIONS=False,
+#     JWT_SECRET_KEY=os.getenv('JWT_SECRET_KEY', 'jwt-secret'),
+#     MAX_CONTENT_LENGTH=max_file_size
+# )
+
+# # Database configuration
+# DB_HOST = os.getenv('DB_HOST')
+# DB_USER = os.getenv('DB_USER')
+# DB_PASS = os.getenv('DB_PASS')
+# DB_NAME = os.getenv('DB_NAME')
+# DB_PORT = os.getenv('DB_PORT', '5432')
+
+# if pg8000 and all([DB_HOST, DB_USER, DB_PASS, DB_NAME]):
+#     app.config['SQLALCHEMY_DATABASE_URI'] = (
+#         f"postgresql+pg8000://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+#     )
+#     print("🔌 Using Postgres DB:", DB_HOST)
+# else:
+#     sqlite_path = os.path.join(os.path.dirname(__file__), "data.db")
+#     app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{sqlite_path}"
+#     print("⚠️ Postgres config missing or pg8000 not installed — falling back to SQLite at", sqlite_path)
+
+# # Configure CORS with environment settings
+# cors_origins = os.getenv('CORS_ORIGINS', '*').split(',')
+# CORS(app, resources={r"/api/*": {"origins": cors_origins}})
+# socketio = SocketIO(app, cors_allowed_origins=cors_origins, async_mode='threading')
+# db = SQLAlchemy(app)
+# bcrypt = Bcrypt(app)
+# jwt = JWTManager(app)
+# PORT = int(os.getenv("PORT", 3001))
+
+# # Google Cloud Storage configuration
+# GCP_PROJECT_ID = os.getenv('GCP_PROJECT_ID')
+# GCS_BUCKET_NAME = os.getenv('GCS_BUCKET_NAME')
+
+# if vertexai is not None and GCP_PROJECT_ID:
+#     try:
+#         vertexai.init(project=GCP_PROJECT_ID, location="us-central1")
+#         print(f"✅ Initialized Vertex AI for project '{GCP_PROJECT_ID}'")
+#     except Exception as e:
+#         print(f"❌ Vertex AI initialization failed: {e}")
+#         vertexai = None
+# else:
+#     print("⚠️ vertexai library or GCP_PROJECT_ID not available. AI features will be disabled.")
+
+# class GCSService:
+#     def __init__(self):
+#         if not all([storage, GCP_PROJECT_ID, GCS_BUCKET_NAME]):
+#             raise Exception("GCS dependencies or config missing.")
+#         self.client = storage.Client(project=GCP_PROJECT_ID)
+#         self.bucket = self.client.get_bucket(GCS_BUCKET_NAME)
+#         print(f"✅ GCS client initialized for bucket: {GCS_BUCKET_NAME}")
+
+#     def upload_data(self, data, blob_name, content_type):
+#         try:
+#             blob = self.bucket.blob(blob_name)
+#             blob.upload_from_string(data, content_type=content_type)
+#             gcs_uri = f"gs://{self.bucket.name}/{blob_name}"
+#             return {'success': True, 'blob_name': blob_name, 'gcs_uri': gcs_uri}
+#         except Exception as e:
+#             print(f"❌ GCS upload error: {e}")
+#             return {'success': False, 'error': str(e)}
+
+#     def download_file_as_bytes(self, blob_name):
+#         try:
+#             blob = self.bucket.blob(blob_name)
+#             return blob.download_as_bytes() if blob.exists() else None
+#         except Exception as e:
+#             print(f"❌ GCS download error: {e}")
+#             return None
+
+#     def list_files(self, prefix=''):
+#         try:
+#             blobs = self.bucket.list_blobs(prefix=prefix)
+#             return {'success': True, 'files': [blob.name for blob in blobs]}
+#         except Exception as e:
+#             print(f"❌ GCS list error: {e}")
+#             return {'success': False, 'error': str(e)}
+
+#     def delete_file(self, blob_name):
+#         try:
+#             blob = self.bucket.blob(blob_name)
+#             blob.delete()
+#             return {'success': True}
+#         except Exception as e:
+#             print(f"❌ GCS delete error: {e}")
+#             return {'success': False, 'error': str(e)}
+
+# class AIService:
+#     def __init__(self):
+#         self.available = False
+#         print("⚠️ AIService initialized with limited functionality")
+
+#     def generate_enhanced_story(self, data):
+#         return {
+#             'summary': f"A beautiful {data.get('craftType', 'craft')} created by {data.get('artisanName', 'an artisan')}.",
+#             'fullStory': f"This {data.get('craftType', 'craft')} tells a story of tradition and craftsmanship, passed down through generations in {data.get('workshopLocation', 'a village')}. The artisan, {data.get('artisanName', 'a skilled craftsman')}, poured their heart into this work."
+#         }
+
+# class UserDataService:
+#     def __init__(self, gcs_service=None):
+#         self.gcs_service = gcs_service
+#         print("⚠️ UserDataService initialized with limited functionality")
+
+#     def save_user_story(self, data, images):
+#         story_id = str(uuid.uuid4())
+#         blob_name = f"stories/{story_id}.json"
+#         story_data = {
+#             'id': story_id,
+#             'data': data,
+#             'images': images
+#         }
+#         if self.gcs_service:
+#             result = self.gcs_service.upload_data(
+#                 data=json.dumps(story_data),
+#                 blob_name=blob_name,
+#                 content_type='application/json'
+#             )
+#             if not result.get('success'):
+#                 return result
+#         return {'success': True, 'story_id': story_id, 'blob_name': blob_name}
+
+#     def list_user_stories(self):
+#         return {'success': True, 'stories': []}
+
+#     def get_user_story(self, story_id):
+#         return {'success': True, 'story': {}}
+
+#     def delete_user_story(self, story_id):
+#         return {'success': True}
+
+# gcs_service = None
+# try:
+#     gcs_service = GCSService()
+# except Exception as e:
+#     print(f"⚠️ Could not initialize GCSService: {e}. GCS features disabled.")
+
+# image_service = ImageService(gcs_service=gcs_service)
+# ai_service = AIService()
+# user_data_service = UserDataService(gcs_service=gcs_service)
+
+# class User(db.Model):
+#     id = db.Column(db.Integer, primary_key=True)
+#     username = db.Column(db.String(80), unique=True, nullable=False)
+#     password_hash = db.Column(db.String(128), nullable=False)
+#     role = db.Column(db.String(20), nullable=False, default='buyer')
+
+#     def set_password(self, password): self.password_hash = bcrypt.generate_password_hash(password).decode('utf8')
+#     def check_password(self, password): return bcrypt.check_password_hash(self.password_hash, password)
+
+# @app.route('/api/register', methods=['POST'])
+# def register():
+#     data = request.get_json()
+#     username = data.get('username')
+#     password = data.get('password')
+#     role = data.get('role', 'buyer')
+
+#     if not username or not password:
+#         return jsonify(success=False, error='Username and password are required'), 400
+
+#     if User.query.filter_by(username=username).first():
+#         return jsonify(success=False, error='Username already exists'), 400
+
+#     user = User(username=username, role=role)
+#     user.set_password(password)
+#     db.session.add(user)
+#     db.session.commit()
+
+#     return jsonify(success=True, message='User registered successfully'), 201
+
+# @app.route('/api/login', methods=['POST'])
+# def login():
+#     data = request.get_json()
+#     username = data.get('username')
+#     password = data.get('password')
+
+#     user = User.query.filter_by(username=username).first()
+#     if not user or not user.check_password(password):
+#         return jsonify(success=False, error='Invalid username or password'), 401
+
+#     access_token = create_access_token(identity=user.username, additional_claims={'role': user.role})
+#     return jsonify(
+#         success=True, 
+#         token=access_token,
+#         user={'username': user.username, 'role': user.role}
+#     ), 200
+
+# @app.route('/api/upload-image', methods=['POST'])
+# @jwt_required()
+# def upload_image():
+#     print("\n--- 📤 New Image Upload Request ---")
+#     if 'image' not in request.files:
+#         print("❌ No image file in request")
+#         return jsonify(success=False, error='No image file provided'), 400
+    
+#     file = request.files['image']
+#     if file.filename == '':
+#         print("❌ No file selected")
+#         return jsonify(success=False, error='No file selected'), 400
+    
+#     print(f"Received file: {file.filename}, Content-Type: {file.content_type}, Size: {file.content_length or 'unknown'}")
+
+#     # Upload original image directly
+#     try:
+#         original_result = image_service.upload_original_image(file, file.filename)
+#         if not original_result.get('success'):
+#             print(f"❌ Original image upload failed: {original_result.get('error')}")
+#             return jsonify(success=False, error=original_result.get('error', 'Failed to upload original image')), 422
+
+#         # Process and upload processed image
+#         file.seek(0)  # Reset file pointer for processing
+#         processed_result = image_service.process_image(file, file.filename)
+#         if not processed_result.get('success'):
+#             print(f"❌ Processed image upload failed: {processed_result.get('error')}")
+#             return jsonify(success=False, error=processed_result.get('error', 'Failed to process image')), 422
+
+#         # Generate AR preview
+#         ar_preview = image_service.generate_ar_preview(processed_result['processed_url'])
+
+#         print(f"✅ Image uploaded successfully: original={original_result['blob_name']}, processed={processed_result['blob_name']}")
+#         return jsonify({
+#             'success': True,
+#             'original': {
+#                 'url': original_result['public_url'],
+#                 'filename': original_result['filename']
+#             },
+#             'processed': {
+#                 'url': processed_result['processed_url'],
+#                 'filename': processed_result['filename']
+#             },
+#             'arPreview': ar_preview
+#         })
+
+#     except Exception as e:
+#         print(f"❌ Upload error: {str(e)}")
+#         return jsonify(success=False, error=f"Server error during upload: {str(e)}"), 500
+
+# @app.route('/api/get-image/<path:blob_name>')
+# def get_image(blob_name):
+#     try:
+#         print(f"\n--- 📥 Retrieving image: {blob_name} ---")
+#         if gcs_service:
+#             data = gcs_service.download_file_as_bytes(blob_name)
+#             if data:
+#                 mimetype = mimetypes.guess_type(blob_name)[0] or 'image/jpeg'
+#                 print(f"✅ Serving image from GCS: {blob_name}")
+#                 return send_file(BytesIO(data), mimetype=mimetype)
+        
+#         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "story_uploads"))
+#         requested_path = os.path.abspath(os.path.join(base_dir, blob_name))
+#         if os.path.exists(requested_path) and os.path.isfile(requested_path) and requested_path.startswith(base_dir):
+#             mimetype = mimetypes.guess_type(blob_name)[0] or 'image/jpeg'
+#             print(f"✅ Serving image from local storage: {requested_path}")
+#             return send_file(requested_path, mimetype=mimetype)
+        
+#         print(f"❌ Image not found: {blob_name}")
+#         return jsonify(error="Image not found"), 404
+#     except Exception as e:
+#         print(f"❌ Error retrieving image {blob_name}: {e}")
+#         return jsonify(error=f"Failed to retrieve image: {e}"), 500
+
+# @app.route('/api/generate-story', methods=['POST'])
+# @jwt_required()
+# def generate_story():
+#     """Generate an AI story based on craft details"""
+#     try:
+#         current_username = get_jwt_identity()
+#         data = request.get_json()
+        
+#         print(f"\n--- 🤖 Generating AI Story for {current_username} ---")
+#         print(f"Craft Type: {data.get('craftType')}")
+#         print(f"Artisan: {data.get('artisanName')}")
+        
+#         # Generate enhanced story using AI service
+#         enhanced_story = ai_service.generate_enhanced_story(data)
+        
+#         # Create a structured story response
+#         story_response = {
+#             'title': f"The Art of {data.get('craftType', 'Traditional Craft')} by {data.get('artisanName', 'Master Artisan')}",
+#             'content': enhanced_story.get('fullStory', f"""
+# In the heart of {data.get('workshopLocation', 'a traditional workshop')}, {data.get('artisanName', 'a master artisan')} continues the ancient tradition of {data.get('craftType', 'traditional craftsmanship')}.
+
+# Using {data.get('materialsUsed', 'time-honored materials')}, each piece is carefully crafted through {data.get('creationProcess', 'traditional methods passed down through generations')}.
+
+# This craft holds deep cultural significance: {data.get('culturalSignificance', 'representing the rich heritage and artistic traditions of the community')}.
+
+# Every creation tells a story of dedication, skill, and the preservation of cultural heritage for future generations.
+#             """.strip()),
+#             'summary': enhanced_story.get('summary', f"A beautiful {data.get('craftType', 'craft')} created by {data.get('artisanName', 'a skilled artisan')} using traditional methods."),
+#             'metadata': {
+#                 'craftType': data.get('craftType'),
+#                 'artisanName': data.get('artisanName'),
+#                 'location': data.get('workshopLocation'),
+#                 'generatedAt': datetime.now().isoformat()
+#             }
+#         }
+        
+#         print(f"✅ Story generated successfully")
+#         return jsonify(success=True, story=story_response)
+        
+#     except Exception as e:
+#         print(f"❌ Story Generation Error: {e}")
+#         return jsonify(success=False, error="Failed to generate story. Please try again."), 500
+
+# @app.route('/api/preserve-story', methods=['POST'])
+# @jwt_required()
+# def preserve_story():
+#     try:
+#         current_username = get_jwt_identity()
+#         claims = get_jwt()
+#         if claims.get('role') not in ['artisan', 'seller']:
+#             return jsonify(error="Only artisans and sellers can preserve stories"), 403
+
+#         data = request.get_json()
+#         images = data.get('images', [])
+#         processed_data = images[0].get('processed', {}) if images else {}
+#         if not processed_data:
+#             return jsonify(success=False, error='An image is required.'), 400
+
+#         # Save user story
+#         user_story_result = user_data_service.save_user_story(data, images)
+#         if not user_story_result['success']:
+#             return jsonify({'success': False, 'error': user_story_result['error']}), 500
+
+#         enhanced_story = ai_service.generate_enhanced_story(data)
+#         story_id = user_story_result['story_id']
+#         story_record = {
+#             'id': story_id,
+#             'title': f"The Story of {data.get('artisanName', 'Unknown Artisan')}'s {data.get('craftType', 'Craft')}",
+#             'artisanName': data.get('artisanName'),
+#             'workshopLocation': data.get('workshopLocation'),
+#             'craftType': data.get('craftType'),
+#             'materialsUsed': data.get('materialsUsed'),
+#             'creationProcess': data.get('creationProcess'),
+#             'culturalSignificance': data.get('culturalSignificance'),
+#             'summary': enhanced_story.get('summary', ''),
+#             'fullStory': enhanced_story.get('fullStory', ''),
+#             'heritageScore': random.randint(75, 98),
+#             'preservedDate': datetime.now().isoformat(),
+#             'images': images,
+#             'arModelUrl': images[0].get('arPreview') if images else "https://modelviewer.dev/shared-assets/models/Chair.glb",
+#             'imageUrl': processed_data.get('url'),
+#             'gcs_stored': bool(gcs_service),
+#             'storage_location': user_story_result['blob_name']
+#         }
+
+#         print(f"✅ Story preserved successfully: {story_id}")
+#         return jsonify(success=True, story=story_record, message='Story preserved in cloud storage!')
+#     except Exception as e:
+#         print(f"❌ Story Preservation Error: {e}")
+#         return jsonify(success=False, error="Server error during story preservation"), 500
+
+# @app.route('/api/buyer-collection', methods=['GET'])
+# def get_buyer_collection():
+#     try:
+#         stories = user_data_service.list_user_stories()
+#         if not stories.get('success') or not stories.get('stories'):
+#             print("⚠️ No stories found, returning sample data.")
+#             return jsonify(collection=[
+#                 {
+#                     'id': '1', 'title': "The Sun God's Chariot - Warli Painting", 'artisanName': "Jivya Soma Mashe",
+#                     'imageUrl': 'https://images.unsplash.com/photo-1588219321333-68995c893046?w=800&auto=format&fit=crop',
+#                     'summary': "An intricate Warli painting depicting the Sun God, a sacred piece of tribal art from the mountains of Maharashtra.",
+#                     'craftType': 'Traditional Painting', 'heritageCategory': 'painting', 'heritageIcon': '🎨', 'heritageColor': '#e11d48',
+#                     'heritageScore': 98, 'rarityScore': 95, 'preservedDate': '2025-10-20', 'location': 'Maharashtra, India',
+#                     'arModelUrl': 'https://modelviewer.dev/shared-assets/models/soda_can.glb'
+#                 },
+#                 {
+#                     'id': '2', 'title': "The Royal Elephant of Bidar - Bidriware", 'artisanName': "Rashid Ahmed Quadri",
+#                     'imageUrl': 'https://images.unsplash.com/photo-1600160298316-f243a6c3ff34?w=800&auto=format&fit=crop',
+#                     'summary': "A masterpiece of Bidriware, this sculpture uses a unique soil oxidation process to inlay pure silver into a blackened zinc alloy.",
+#                     'craftType': 'Metalwork', 'heritageCategory': 'metalwork', 'heritageIcon': '🔨', 'heritageColor': '#1d4ed8',
+#                     'heritageScore': 95, 'rarityScore': 92, 'preservedDate': '2025-10-18', 'location': 'Karnataka, India',
+#                     'arModelUrl': 'https://modelviewer.dev/shared-assets/models/Horse.glb'
+#                 },
+#                 {
+#                     'id': '3', 'title': "The Azure Vase of Jaipur - Blue Pottery", 'artisanName': "Leela Bordia",
+#                     'imageUrl': 'https://images.unsplash.com/photo-1578996953844-3839313a0717?w=800&auto=format&fit=crop',
+#                     'summary': "Fired at low temperatures, this iconic blue pottery from Jaipur is crafted without clay, using quartz and glass instead.",
+#                     'craftType': 'Pottery & Ceramics', 'heritageCategory': 'pottery', 'heritageIcon': '🏺', 'heritageColor': '#059669',
+#                     'heritageScore': 92, 'rarityScore': 85, 'preservedDate': '2025-10-15', 'location': 'Rajasthan, India',
+#                     'arModelUrl': 'https://modelviewer.dev/shared-assets/models/chair.glb'
+#                 },
+#                 {
+#                     'id': '4', 'title': "Echoes of the Silk Road - Pashmina Shawl", 'artisanName': "Fatima Ali",
+#                     'imageUrl': 'https://images.unsplash.com/photo-1596700147535-7639e34c0b26?w=800&auto=format&fit=crop',
+#                     'summary': "Hand-spun from the finest cashmere wool in the valleys of Kashmir, each thread tells a story of ancient trade routes.",
+#                     'craftType': 'Textile Arts', 'heritageCategory': 'textiles', 'heritageIcon': '🧵', 'heritageColor': '#9d174d',
+#                     'heritageScore': 96, 'rarityScore': 97, 'preservedDate': '2025-10-12', 'location': 'Kashmir, India',
+#                     'arModelUrl': 'https://modelviewer.dev/shared-assets/models/cloth.glb'
+#                 },
+#                 {
+#                     'id': '5', 'title': "The Serpent Bracelet - Dokra Metal Casting", 'artisanName': "Suresh Kumar",
+#                     'imageUrl': 'https://images.unsplash.com/photo-1611413522339-b278772d1533?w=800&auto=format&fit=crop',
+#                     'summary': "Forged using the 4,000-year-old lost-wax casting technique, this Dokra jewelry captures the spirit of tribal folklore.",
+#                     'craftType': 'Jewelry Making', 'heritageCategory': 'jewelry', 'heritageIcon': '💎', 'heritageColor': '#ca8a04',
+#                     'heritageScore': 94, 'rarityScore': 88, 'preservedDate': '2025-10-10', 'location': 'West Bengal, India',
+#                     'arModelUrl': 'https://modelviewer.dev/shared-assets/models/shishkebab.glb'
+#                 },
+#                 {
+#                     'id': '6', 'title': "Forest Spirit Mask - Chhau Wood Carving", 'artisanName': "Dhananjay Mahato",
+#                     'imageUrl': 'https://images.unsplash.com/photo-1594734439493-68c8b4173d1f?w=800&auto=format&fit=crop',
+#                     'summary': "A hand-carved mask used in the traditional Chhau dance, embodying mythological figures and ancestral spirits.",
+#                     'craftType': 'Woodworking', 'heritageCategory': 'woodwork', 'heritageIcon': '🪵', 'heritageColor': '#78350f',
+#                     'heritageScore': 89, 'rarityScore': 82, 'preservedDate': '2025-10-05', 'location': 'Odisha, India',
+#                     'arModelUrl': 'https://modelviewer.dev/shared-assets/models/RobotExpressive.glb'
+#                 },
+#                 {
+#                     'id': '7', 'title': "Kyoto Cherry Blossom Fan", 'artisanName': "Aiko Tanaka",
+#                     'imageUrl': 'https://images.unsplash.com/photo-1554232456-8727a6c3ff34?w=800&auto=format&fit=crop',
+#                     'summary': "A delicate Kyo-sensu folding fan, handcrafted from bamboo and washi paper, painted with scenes of sakura in bloom.",
+#                     'craftType': 'Paper Crafts', 'heritageCategory': 'painting', 'heritageIcon': '🌸', 'heritageColor': '#db2777',
+#                     'heritageScore': 91, 'rarityScore': 84, 'preservedDate': '2025-09-28', 'location': 'Kyoto, Japan',
+#                     'arModelUrl': 'https://modelviewer.dev/shared-assets/models/fan.glb'
+#                 },
+#                 {
+#                     'id': '8', 'title': "The Incan Sunstone - Andean Weaving", 'artisanName': "Elena Quispe",
+#                     'imageUrl': 'https://images.unsplash.com/photo-1621342378903-a4b733561262?w=800&auto=format&fit=crop',
+#                     'summary': "Woven on a backstrap loom with naturally dyed alpaca wool, this textile contains geometric patterns of Incan cosmology.",
+#                     'craftType': 'Textile Arts', 'heritageCategory': 'textiles', 'heritageIcon': '🧵', 'heritageColor': '#9d174d',
+#                     'heritageScore': 97, 'rarityScore': 93, 'preservedDate': '2025-09-25', 'location': 'Cusco, Peru',
+#                     'arModelUrl': 'https://modelviewer.dev/shared-assets/models/cloth.glb'
+#                 },
+#                 {
+#                     'id': '9', 'title': "Moroccan Celestial Lantern - Tadelakt", 'artisanName': "Youssef El-Fassi",
+#                     'imageUrl': 'https://images.unsplash.com/photo-1579881604332-953d6e5b4f62?w=800&auto=format&fit=crop',
+#                     'summary': "A traditional Moroccan lantern crafted with intricate metalwork and Tadelakt plaster, polished to a waterproof sheen.",
+#                     'craftType': 'Metalwork', 'heritageCategory': 'metalwork', 'heritageIcon': '🔨', 'heritageColor': '#1d4ed8',
+#                     'heritageScore': 93, 'rarityScore': 90, 'preservedDate': '2025-09-22', 'location': 'Fes, Morocco',
+#                     'arModelUrl': 'https://modelviewer.dev/shared-assets/models/lantern.glb'
+#                 },
+#                 {
+#                     'id': '10', 'title': "Paithani Saree - The Queen of Silks", 'artisanName': "Meena Raje",
+#                     'imageUrl': 'https://images.unsplash.com/photo-1620721248231-6c32d3a39cac?w=800&auto=format&fit=crop',
+#                     'summary': "A legendary handwoven silk saree from Paithan, Maharashtra, known for its peacock motifs and kaleidoscope-like colors.",
+#                     'craftType': 'Textile Arts', 'heritageCategory': 'textiles', 'heritageIcon': '🧵', 'heritageColor': '#9d174d',
+#                     'heritageScore': 99, 'rarityScore': 98, 'preservedDate': '2025-09-19', 'location': 'Maharashtra, India',
+#                     'arModelUrl': 'https://modelviewer.dev/shared-assets/models/cloth.glb'
+#                 }
+#             ])
+#         return jsonify(collection=stories.get('stories', []))
+#     except Exception as e:
+#         print(f"❌ Error fetching buyer collection: {e}")
+#         return jsonify(success=False, error="Could not retrieve collection"), 500
+
+# @app.route('/api/heritage-categories', methods=['GET'])
+# def get_heritage_categories():
+#     categories = [
+#         {'id': 'all', 'name': 'All Heritage'},
+#         {'id': 'textiles', 'name': 'Textile Arts'},
+#         {'id': 'pottery', 'name': 'Pottery & Ceramics'},
+#         {'id': 'woodwork', 'name': 'Woodworking'},
+#         {'id': 'metalwork', 'name': 'Metalwork'},
+#         {'id': 'jewelry', 'name': 'Jewelry Making'},
+#         {'id': 'painting', 'name': 'Traditional Painting'}
+#     ]
+#     return jsonify({'categories': categories})
+
+# @app.route('/api/verify-heritage', methods=['POST'])
+# def verify_heritage():
+#     verification = {
+#         'success': True,
+#         'transactionHash': f"0x{uuid.uuid4().hex[:64]}",
+#         'contractAddress': "0x742d35Cc6634C0532925a3b8D8f8f88b8C0eE8f3",
+#         'tokenId': str(uuid.uuid4())[:8],
+#         'status': 'verified'
+#     }
+#     return jsonify(verification)
+
+# @app.route('/api/gcs-files', methods=['GET'])
+# def list_gcs_files():
+#     try:
+#         prefix = request.args.get('prefix', '')
+#         result = gcs_service.list_files(prefix)
+#         return jsonify(result)
+#     except Exception as e:
+#         print(f"❌ GCS list error: {e}")
+#         return jsonify({'success': False, 'error': str(e)}), 500
+
+# @app.route('/api/delete-file', methods=['DELETE'])
+# def delete_gcs_file():
+#     try:
+#         data = request.get_json()
+#         blob_name = data.get('blob_name')
+#         if not blob_name:
+#             return jsonify({'success': False, 'error': 'blob_name is required'}), 400
+#         result = gcs_service.delete_file(blob_name)
+#         return jsonify(result)
+#     except Exception as e:
+#         print(f"❌ GCS delete error: {e}")
+#         return jsonify({'success': False, 'error': str(e)}), 500
+
+# @app.route('/api/user-stories', methods=['GET'])
+# def get_user_stories():
+#     try:
+#         result = user_data_service.list_user_stories()
+#         return jsonify(result)
+#     except Exception as e:
+#         print(f"❌ User stories error: {e}")
+#         return jsonify({'success': False, 'error': str(e)}), 500
+
+# @app.route('/api/user-story/<story_id>', methods=['GET'])
+# def get_user_story(story_id):
+#     try:
+#         result = user_data_service.get_user_story(story_id)
+#         return jsonify(result)
+#     except Exception as e:
+#         print(f"❌ User story error: {e}")
+#         return jsonify({'success': False, 'error': str(e)}), 500
+
+# @app.route('/api/user-story/<story_id>', methods=['DELETE'])
+# def delete_user_story(story_id):
+#     try:
+#         result = user_data_service.delete_user_story(story_id)
+#         return jsonify(result)
+#     except Exception as e:
+#         print(f"❌ Delete user story error: {e}")
+#         return jsonify({'success': False, 'error': str(e)}), 500
+
+# if __name__ == '__main__':
+#     with app.app_context():
+#         try:
+#             db.create_all()
+#             print("✅ Database tables ensured.")
+#         except Exception as e:
+#             print(f"❌ Database initialization failed: {e}")
+    
+#     print(f'🌟 GenX Story Preservation Platform Starting...')
+#     print(f'📖 Story API: http://localhost:{PORT}')
+#     socketio.run(app, debug=True, port=PORT)
+
+
 import os
 import json
 import uuid
@@ -1103,6 +1668,9 @@ def upload_image():
             'arPreview': ar_preview
         })
 
+    except AttributeError as e:
+        print(f"❌ AttributeError: {str(e)}. Ensure ImageService methods are implemented.")
+        return jsonify(success=False, error=f"Server configuration error: {str(e)}"), 500
     except Exception as e:
         print(f"❌ Upload error: {str(e)}")
         return jsonify(success=False, error=f"Server error during upload: {str(e)}"), 500
@@ -1295,7 +1863,7 @@ def get_buyer_collection():
                 },
                 {
                     'id': '9', 'title': "Moroccan Celestial Lantern - Tadelakt", 'artisanName': "Youssef El-Fassi",
-                    'imageUrl': 'https://images.unsplash.com/photo-1579881604332-953d6e5b4f62?w=800&auto=format&fit=crop',
+                    'imageUrl': 'https://images.unsplash.com/photo-1579881604332-953d6e5b4d62?w=800&auto=format&fit=crop',
                     'summary': "A traditional Moroccan lantern crafted with intricate metalwork and Tadelakt plaster, polished to a waterproof sheen.",
                     'craftType': 'Metalwork', 'heritageCategory': 'metalwork', 'heritageIcon': '🔨', 'heritageColor': '#1d4ed8',
                     'heritageScore': 93, 'rarityScore': 90, 'preservedDate': '2025-09-22', 'location': 'Fes, Morocco',
