@@ -214,20 +214,136 @@
 
 
 import json
-from vertexai.generative_models import GenerativeModel, Part
+import random
+from datetime import datetime
 
 class AIService:
     def __init__(self):
-        self.model = GenerativeModel("gemini-2.5-flash")
+        self.available = False
+        print("⚠️ AIService initialized with limited functionality")
+        
+        # Story templates for different craft types
+        self.story_templates = {
+            'pottery': {
+                'title_templates': [
+                    "Clay Dreams of {artisan}",
+                    "The Potter's Legacy",
+                    "Earth and Fire United",
+                    "Vessels of Heritage"
+                ],
+                'story_template': """In the heart of {location}, master potter {artisan} shapes more than clay—they mold memories into being. Each vessel emerges from the ancient dance between earth and fire, carrying within its curves the whispered secrets of generations past.
 
-    def generate_story_with_gemini(self, image_gcs_uri, form_data):
+The {materials} speaks beneath skilled hands, transforming through {process} into something transcendent. This is not merely pottery; it is a bridge between worlds, where tradition flows like water into the vessel of tomorrow.
+
+{cultural_significance}
+
+Every piece tells a story of patience, of dedication, of the sacred relationship between artisan and earth."""
+            },
+            'textile': {
+                'title_templates': [
+                    "Threads of {artisan}'s Heritage",
+                    "Woven Stories",
+                    "The Fabric of Tradition",
+                    "Colors of Culture"
+                ],
+                'story_template': """In {location}, {artisan} weaves more than fabric—they intertwine the very essence of cultural memory. Each thread carries the weight of ancestral wisdom, each pattern a language spoken in color and texture.
+
+Through {process}, using {materials}, the loom becomes a storyteller. The rhythmic dance of warp and weft echoes the heartbeat of tradition, creating textiles that are living chronicles of heritage.
+
+{cultural_significance}
+
+This is the art of transformation, where simple fibers become vessels of identity, carrying forward the dreams and stories of a people."""
+            },
+            'woodwork': {
+                'title_templates': [
+                    "Carved Memories by {artisan}",
+                    "The Wood Whisperer",
+                    "Grain and Soul",
+                    "Forest Stories"
+                ],
+                'story_template': """Deep in the workshop of {location}, {artisan} listens to the whispers of wood. Each grain tells a story of seasons, of growth, of the patient passage of time that only trees understand.
+
+With {materials} and through {process}, rough timber transforms into art. The chisel becomes a translator, revealing the hidden beauty that has waited within the wood for decades, perhaps centuries.
+
+{cultural_significance}
+
+This is the ancient dialogue between human creativity and nature's patience, where every carved line honors both the tree's sacrifice and the artisan's vision."""
+            },
+            'metalwork': {
+                'title_templates': [
+                    "Forged by {artisan}",
+                    "Metal and Fire",
+                    "The Blacksmith's Song",
+                    "Iron Dreams"
+                ],
+                'story_template': """In the forge of {location}, {artisan} commands fire and metal in an ancient dance of creation. The hammer's rhythm echoes through time, connecting this moment to countless generations of metalworkers.
+
+Using {materials} and {process}, raw metal surrenders to skilled hands and patient heat. Each strike of the hammer is both destruction and creation, breaking down to build up something greater.
+
+{cultural_significance}
+
+This is alchemy in its truest form—the transformation of base metal into objects of beauty, utility, and meaning."""
+            }
+        }
+        
+    def generate_enhanced_story(self, craft_data):
+        """Generate an enhanced story based on craft data"""
         try:
-            image_part = Part.from_uri(image_gcs_uri, mime_type="image/jpeg")
-            prompt = f"Create a compelling story for a {form_data.get('craftType')}..." # Your full prompt here
-            response = self.model.generate_content([image_part, prompt])
-            raw_text = response.text.strip().replace("```json", "").replace("```", "")
-            return json.loads(raw_text)
+            craft_type = craft_data.get('craftType', '').lower()
+            artisan_name = craft_data.get('artisanName', 'Master Artisan')
+            location = craft_data.get('workshopLocation', 'a traditional workshop')
+            materials = craft_data.get('materialsUsed', 'traditional materials')
+            process = craft_data.get('creationProcess', 'time-honored techniques')
+            cultural_sig = craft_data.get('culturalSignificance', 'This craft represents the rich heritage of its community.')
+            
+            # Find matching template or use generic
+            template_key = None
+            for key in self.story_templates.keys():
+                if key in craft_type:
+                    template_key = key
+                    break
+            
+            if not template_key:
+                template_key = 'pottery'  # Default template
+            
+            template = self.story_templates[template_key]
+            
+            # Generate title
+            title_template = random.choice(template['title_templates'])
+            title = title_template.format(artisan=artisan_name)
+            
+            # Generate story
+            story = template['story_template'].format(
+                artisan=artisan_name,
+                location=location,
+                materials=materials,
+                process=process,
+                cultural_significance=cultural_sig
+            )
+            
+            # Generate summary
+            summary = f"A masterful {craft_data.get('craftType', 'craft')} by {artisan_name}, showcasing traditional techniques and cultural heritage from {location}."
+            
+            return {
+                'title': title,
+                'summary': summary,
+                'fullStory': story,
+                'tags': [
+                    craft_type,
+                    location.split(',')[0].lower() if ',' in location else location.lower(),
+                    'handmade',
+                    'traditional',
+                    'heritage'
+                ]
+            }
+            
         except Exception as e:
-            return {"title": "AI Story Failed", "summary": "Error.", "fullStory": str(e), "tags": []}
+            print(f"❌ Story generation error: {e}")
+            return {
+                'title': f"The Art of {craft_data.get('craftType', 'Traditional Craft')}",
+                'summary': f"A beautiful handcrafted piece by {craft_data.get('artisanName', 'a skilled artisan')}.",
+                'fullStory': f"This {craft_data.get('craftType', 'craft')} represents the dedication and skill of {craft_data.get('artisanName', 'the artisan')}, created using traditional methods in {craft_data.get('workshopLocation', 'their workshop')}. Each piece tells a story of cultural heritage and artistic excellence.",
+                'tags': ['handmade', 'traditional', 'artisan', 'heritage', 'craft']
+            }
 
 ai_service = AIService()

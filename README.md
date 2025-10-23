@@ -150,7 +150,7 @@ gle Cloud Storage Setup
 3. **Update .env file** with your GCS configuration:
 ```bash
 GCS_BUCKET_NAME=users-artisans
-GOOGLE_CLOUD_PROJECT_ID=hackathon-genai-475313
+GCP_PROJECT_ID=hackathon-genai-475313
 GOOGLE_APPLICATION_CREDENTIALS=./service-account-key.json
 ```
 

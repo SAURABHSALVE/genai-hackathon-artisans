@@ -112,18 +112,30 @@ import os
 import uuid
 import io
 import tempfile
+import random
 from PIL import Image, ImageOps, UnidentifiedImageError
 from werkzeug.utils import secure_filename
 import mimetypes
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 class ImageService:
     def __init__(self, gcs_service=None):
         self.gcs = gcs_service
-        self.original_folder = "original_images"
-        self.processed_folder = "processed_images"
+        self.original_folder = "originals"
+        self.processed_folder = "processed"
         self.local_uploads = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "story_uploads"))
         os.makedirs(self.local_uploads, exist_ok=True)
-        print(f"✅ ImageService initialized. Local uploads directory: {self.local_uploads}")
+        
+        # Load settings from environment
+        self.image_quality = int(os.getenv('IMAGE_QUALITY', 85))
+        self.max_size = int(os.getenv('PROCESSED_IMAGE_MAX_SIZE', 1024))
+        self.allowed_extensions = os.getenv('ALLOWED_EXTENSIONS', 'jpg,jpeg,png,webp,gif').split(',')
+        
+        print(f"✅ ImageService initialized. Local uploads: {self.local_uploads}")
+        print(f"   Quality: {self.image_quality}, Max size: {self.max_size}px")
 
     def upload_original_image(self, file_storage, original_filename):
         """
@@ -137,13 +149,14 @@ class ImageService:
             print(f"❌ VALIDATION FAILED: {error_message}")
             return {'success': False, 'error': error_message}
 
-        # Validate MIME type and extension
+        # Validate MIME type and extension using environment settings
         allowed_types = {'image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'}
         content_type = file_storage.content_type or mimetypes.guess_type(original_filename)[0] or 'application/octet-stream'
-        ext = os.path.splitext(original_filename)[1].lower()
-        allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
+        ext = os.path.splitext(original_filename)[1].lower().lstrip('.')
+        allowed_extensions = set(self.allowed_extensions)
 
         print(f"Detected MIME type: {content_type}, Extension: {ext}")
+        print(f"Allowed extensions: {allowed_extensions}")
 
         if content_type not in allowed_types or ext not in allowed_extensions:
             error_message = (
@@ -254,12 +267,12 @@ class ImageService:
                 print("Converting image mode to RGB...")
                 img = img.convert('RGB')
 
-            print("Resizing image to max 1280x1280...")
-            img.thumbnail((1280, 1280), Image.Resampling.LANCZOS)
+            print(f"Resizing image to max {self.max_size}x{self.max_size}...")
+            img.thumbnail((self.max_size, self.max_size), Image.Resampling.LANCZOS)
 
-            print("Saving processed image to buffer as JPEG...")
+            print(f"Saving processed image to buffer as JPEG (quality: {self.image_quality})...")
             img_buffer = io.BytesIO()
-            img.save(img_buffer, 'JPEG', quality=90, optimize=True)
+            img.save(img_buffer, 'JPEG', quality=self.image_quality, optimize=True)
             img_data = img_buffer.getvalue()
             print(f"Processed image size: {len(img_data)} bytes")
 

@@ -848,7 +848,7 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
-from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
+from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity, get_jwt
 from flask_socketio import SocketIO
 import random
 from services.image_service import ImageService
@@ -865,11 +865,14 @@ except ImportError:
 load_dotenv()
 
 app = Flask(__name__)
+
+# Configure app from environment variables
+max_file_size = int(os.getenv('MAX_FILE_SIZE', 16777216))  # 16MB default
 app.config.from_mapping(
     SECRET_KEY=os.getenv('SECRET_KEY', 'genx-story-preservation-2025'),
     SQLALCHEMY_TRACK_MODIFICATIONS=False,
     JWT_SECRET_KEY=os.getenv('JWT_SECRET_KEY', 'jwt-secret'),
-    MAX_CONTENT_LENGTH=16 * 1024 * 1024  # 16MB max file size
+    MAX_CONTENT_LENGTH=max_file_size
 )
 
 # Database configuration
@@ -889,8 +892,10 @@ else:
     app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{sqlite_path}"
     print("⚠️ Postgres config missing or pg8000 not installed — falling back to SQLite at", sqlite_path)
 
-CORS(app, resources={r"/api/*": {"origins": "*"}})
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+# Configure CORS with environment settings
+cors_origins = os.getenv('CORS_ORIGINS', '*').split(',')
+CORS(app, resources={r"/api/*": {"origins": cors_origins}})
+socketio = SocketIO(app, cors_allowed_origins=cors_origins, async_mode='threading')
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
@@ -1045,8 +1050,12 @@ def login():
     if not user or not user.check_password(password):
         return jsonify(success=False, error='Invalid username or password'), 401
 
-    access_token = create_access_token(identity={'username': user.username, 'role': user.role})
-    return jsonify(success=True, access_token=access_token), 200
+    access_token = create_access_token(identity=user.username, additional_claims={'role': user.role})
+    return jsonify(
+        success=True, 
+        token=access_token,
+        user={'username': user.username, 'role': user.role}
+    ), 200
 
 @app.route('/api/upload-image', methods=['POST'])
 @jwt_required()
@@ -1063,51 +1072,40 @@ def upload_image():
     
     print(f"Received file: {file.filename}, Content-Type: {file.content_type}, Size: {file.content_length or 'unknown'}")
 
-    # Save file to temporary location to allow multiple reads
+    # Upload original image directly
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
-            file.save(temp_file.name)
-            temp_file_size = os.path.getsize(temp_file.name)
-            print(f"Temp file created for upload: {temp_file.name}, Size: {temp_file_size} bytes")
+        original_result = image_service.upload_original_image(file, file.filename)
+        if not original_result.get('success'):
+            print(f"❌ Original image upload failed: {original_result.get('error')}")
+            return jsonify(success=False, error=original_result.get('error', 'Failed to upload original image')), 422
 
-            # Upload original image
-            with open(temp_file.name, 'rb') as temp_file_stream:
-                original_result = image_service.upload_original_image(temp_file_stream, file.filename)
-            if not original_result.get('success'):
-                print(f"❌ Original image upload failed: {original_result.get('error')}")
-                return jsonify(success=False, error=original_result.get('error', 'Failed to upload original image')), 422
+        # Process and upload processed image
+        file.seek(0)  # Reset file pointer for processing
+        processed_result = image_service.process_image(file, file.filename)
+        if not processed_result.get('success'):
+            print(f"❌ Processed image upload failed: {processed_result.get('error')}")
+            return jsonify(success=False, error=processed_result.get('error', 'Failed to process image')), 422
 
-            # Process and upload processed image
-            with open(temp_file.name, 'rb') as temp_file_stream:
-                processed_result = image_service.process_image(temp_file_stream, file.filename)
-            if not processed_result.get('success'):
-                print(f"❌ Processed image upload failed: {processed_result.get('error')}")
-                return jsonify(success=False, error=processed_result.get('error', 'Failed to process image')), 422
+        # Generate AR preview
+        ar_preview = image_service.generate_ar_preview(processed_result['processed_url'])
 
-            # Generate AR preview
-            ar_preview = image_service.generate_ar_preview(processed_result['processed_url'])
-
-            print(f"✅ Image uploaded successfully: original={original_result['blob_name']}, processed={processed_result['blob_name']}")
-            return jsonify({
-                'success': True,
-                'original': {
-                    'url': original_result['public_url'],
-                    'filename': original_result['filename']
-                },
-                'processed': {
-                    'url': processed_result['processed_url'],
-                    'filename': processed_result['filename']
-                },
-                'arPreview': ar_preview
-            })
+        print(f"✅ Image uploaded successfully: original={original_result['blob_name']}, processed={processed_result['blob_name']}")
+        return jsonify({
+            'success': True,
+            'original': {
+                'url': original_result['public_url'],
+                'filename': original_result['filename']
+            },
+            'processed': {
+                'url': processed_result['processed_url'],
+                'filename': processed_result['filename']
+            },
+            'arPreview': ar_preview
+        })
 
     except Exception as e:
         print(f"❌ Upload error: {str(e)}")
         return jsonify(success=False, error=f"Server error during upload: {str(e)}"), 500
-    finally:
-        if 'temp_file' in locals() and os.path.exists(temp_file.name):
-            os.unlink(temp_file.name)
-            print(f"Temp file deleted: {temp_file.name}")
 
 @app.route('/api/get-image/<path:blob_name>')
 def get_image(blob_name):
@@ -1133,13 +1131,57 @@ def get_image(blob_name):
         print(f"❌ Error retrieving image {blob_name}: {e}")
         return jsonify(error=f"Failed to retrieve image: {e}"), 500
 
+@app.route('/api/generate-story', methods=['POST'])
+@jwt_required()
+def generate_story():
+    """Generate an AI story based on craft details"""
+    try:
+        current_username = get_jwt_identity()
+        data = request.get_json()
+        
+        print(f"\n--- 🤖 Generating AI Story for {current_username} ---")
+        print(f"Craft Type: {data.get('craftType')}")
+        print(f"Artisan: {data.get('artisanName')}")
+        
+        # Generate enhanced story using AI service
+        enhanced_story = ai_service.generate_enhanced_story(data)
+        
+        # Create a structured story response
+        story_response = {
+            'title': f"The Art of {data.get('craftType', 'Traditional Craft')} by {data.get('artisanName', 'Master Artisan')}",
+            'content': enhanced_story.get('fullStory', f"""
+In the heart of {data.get('workshopLocation', 'a traditional workshop')}, {data.get('artisanName', 'a master artisan')} continues the ancient tradition of {data.get('craftType', 'traditional craftsmanship')}.
+
+Using {data.get('materialsUsed', 'time-honored materials')}, each piece is carefully crafted through {data.get('creationProcess', 'traditional methods passed down through generations')}.
+
+This craft holds deep cultural significance: {data.get('culturalSignificance', 'representing the rich heritage and artistic traditions of the community')}.
+
+Every creation tells a story of dedication, skill, and the preservation of cultural heritage for future generations.
+            """.strip()),
+            'summary': enhanced_story.get('summary', f"A beautiful {data.get('craftType', 'craft')} created by {data.get('artisanName', 'a skilled artisan')} using traditional methods."),
+            'metadata': {
+                'craftType': data.get('craftType'),
+                'artisanName': data.get('artisanName'),
+                'location': data.get('workshopLocation'),
+                'generatedAt': datetime.now().isoformat()
+            }
+        }
+        
+        print(f"✅ Story generated successfully")
+        return jsonify(success=True, story=story_response)
+        
+    except Exception as e:
+        print(f"❌ Story Generation Error: {e}")
+        return jsonify(success=False, error="Failed to generate story. Please try again."), 500
+
 @app.route('/api/preserve-story', methods=['POST'])
 @jwt_required()
 def preserve_story():
     try:
-        current_user = get_jwt_identity()
-        if current_user.get('role') != 'artisan':
-            return jsonify(error="Only artisans can preserve stories"), 403
+        current_username = get_jwt_identity()
+        claims = get_jwt()
+        if claims.get('role') not in ['artisan', 'seller']:
+            return jsonify(error="Only artisans and sellers can preserve stories"), 403
 
         data = request.get_json()
         images = data.get('images', [])

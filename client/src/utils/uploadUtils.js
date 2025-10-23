@@ -64,14 +64,14 @@ import axios from 'axios';
 
 const API_URL = 'http://localhost:3001';
 const MAX_FILE_SIZE = 16 * 1024 * 1024; // 16MB
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/bmp'];
 
 export const validateImageFile = (file) => {
   if (file.size > MAX_FILE_SIZE) {
     throw new Error(`File is too large. Max size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
   }
   if (!ALLOWED_TYPES.includes(file.type)) {
-    throw new Error(`Invalid file type. Only JPEG, PNG, or WebP are allowed.`);
+    throw new Error(`Invalid file type. Only JPEG, PNG, WebP, GIF, or BMP are allowed.`);
   }
 };
 
@@ -80,10 +80,17 @@ export const uploadImage = async (file) => {
     const formData = new FormData();
     formData.append('image', file);
 
+    const token = localStorage.getItem('authToken');
+    const headers = {
+      'Content-Type': 'multipart/form-data',
+    };
+    
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     const response = await axios.post(`${API_URL}/api/upload-image`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+      headers,
     });
 
     if (response.data.success) {
