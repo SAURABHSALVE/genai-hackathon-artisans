@@ -1,3 +1,4 @@
+
 // import React from 'react';
 // import { Link, useNavigate } from 'react-router-dom';
 // import { motion } from 'framer-motion';
@@ -112,7 +113,8 @@ const Dashboard = () => {
         </div>
 
         <div className="role-selector" style={{ gridTemplateColumns: '1fr 1fr' }}>
-          {userRole === 'artisan' && (
+          {/* Fix: Only show artisan link if role is 'artisan' or 'seller' */}
+          {(userRole === 'artisan' || userRole === 'seller') && (
             <Link to="/seller-profile" className="profile-card">
               <span className="role-icon">🎨</span>
               <h3 className="role-title">Preserve a Story</h3>
