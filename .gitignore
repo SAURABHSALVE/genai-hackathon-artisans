@@ -17,6 +17,8 @@ service-account-key.json
 *-service-account-key.json
 google-credentials.json
 hackathon-genai-475313-392f2db9f39b.json
+hackathon-genai-475313-392f2db9f39b (1).json
+
 
 # Build outputs
 client/build/
