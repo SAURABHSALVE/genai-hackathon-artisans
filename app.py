@@ -1,3 +1,4 @@
+
 # app.py
 import os
 import json
@@ -29,6 +30,26 @@ try:
 except ImportError:
     print("⚠️ Google Vertex AI/AI Platform libraries not found.")
     vertexai, GenerativeModel, Part = None, None, None
+
+
+# Blockchain service
+USE_REAL_BLOCKCHAIN = os.getenv('USE_REAL_BLOCKCHAIN', 'false').lower() == 'true'
+blockchain_service = None
+try:
+    if USE_REAL_BLOCKCHAIN:
+        print('Loading real blockchain service...')
+        from services.real_blockchain_service import real_blockchain_service
+        blockchain_service = real_blockchain_service
+        if blockchain_service:
+            print('Real blockchain service loaded')
+    else:
+        from services.blockchain_service import blockchain_service
+        print('Simulated blockchain service loaded')
+except Exception as e:
+    print(f'Blockchain service import failed: {e}')
+    blockchain_service = None
+print(f'Blockchain service status: {"Loaded" if blockchain_service else "Disabled"}')
+
 
 # --- Updated Service Imports ---
 try:
@@ -106,19 +127,16 @@ def generate_ar_preview(processed_blob_name, story_id):
         return {'success': False, 'error': 'GCS service not initialized'}
     
     try:
-        # Download processed image
         image_data = gcs_service.download_file_as_bytes(processed_blob_name)
         if not image_data:
             print(f"❌ Failed to download processed image: {processed_blob_name}")
             return {'success': False, 'error': f"Failed to download processed image: {processed_blob_name}"}
         
-        # Generate AR preview (copy of processed image)
-        image = Image.open(BytesIO(image_data))
+        image = Image.open(BytesIO(image_data)).convert('RGB')
         image.thumbnail((800, 800))
         ar_preview_buffer = BytesIO()
         image.save(ar_preview_buffer, format='JPEG')
         
-        # Upload AR preview to GCS
         ar_preview_blob_name = f"images/ar_preview/{story_id}_ar_preview.jpg"
         result = gcs_service.upload_data(
             data=ar_preview_buffer.getvalue(),
@@ -152,7 +170,6 @@ class UserDataService:
         story_id = str(uuid.uuid4())
         blob_name = f"user_stories/{story_id}.json"
         
-        # Ensure 'processed' and 'arPreview' have 'blob_name'
         if images and 'processed' in images[0] and 'blob_name' not in images[0]['processed']:
             print("⚠️ 'blob_name' missing from images[0]['processed']. Adding it from 'url'.")
             url_or_blob = images[0]['processed'].get('url', '') or images[0]['processed'].get('processed_url', '')
@@ -230,17 +247,52 @@ if ai_service is None:
             return self._fallback_story(data, error_message="AI Service failed to initialize.")
     ai_service = FallbackAIService()
 
-# --- Database Model (User only for now) ---
+# --- Database Models ---
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
     role = db.Column(db.String(20), nullable=False, default='buyer')
+    # Relationship to know which orders belong to this user
+    orders = db.relationship('OrderRequest', backref='artisan', lazy=True)
 
     def set_password(self, password):
         self.password_hash = bcrypt.generate_password_hash(password).decode('utf8')
     def check_password(self, password):
         return bcrypt.check_password_hash(self.password_hash, password)
+
+# ============================================================================
+#  NEW: ORDER REQUEST DATABASE MODEL
+# ============================================================================
+class OrderRequest(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    # Foreign key to link to the User table
+    artisan_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    story_id = db.Column(db.String(36), nullable=False)
+    story_title = db.Column(db.String(200), nullable=False)
+    buyer_name = db.Column(db.String(100), nullable=False)
+    buyer_email = db.Column(db.String(120), nullable=False)
+    buyer_phone = db.Column(db.String(20), nullable=True)
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+    customization = db.Column(db.Text, nullable=True)
+    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    is_read = db.Column(db.Boolean, nullable=False, default=False)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'artisan_id': self.artisan_id,
+            'story_id': self.story_id,
+            'story_title': self.story_title,
+            'buyer_name': self.buyer_name,
+            'buyer_email': self.buyer_email,
+            'buyer_phone': self.buyer_phone,
+            'quantity': self.quantity,
+            'customization': self.customization,
+            'timestamp': self.timestamp.isoformat(),
+            'is_read': self.is_read
+        }
 
 # --- API Routes ---
 @app.route('/api/register', methods=['POST'])
@@ -248,12 +300,17 @@ def register():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
+    email = data.get('email')
     role = data.get('role', 'buyer')
-    if not username or not password:
-        return jsonify(success=False, error='Username and password are required'), 400
+    
+    if not username or not password or not email:
+        return jsonify(success=False, error='Username, email, and password are required'), 400
     if User.query.filter_by(username=username).first():
         return jsonify(success=False, error='Username already exists'), 400
-    user = User(username=username, role=role)
+    if User.query.filter_by(email=email).first():
+        return jsonify(success=False, error='Email already exists'), 400
+        
+    user = User(username=username, email=email, role=role)
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
@@ -281,34 +338,29 @@ def upload_image():
         return jsonify(success=False, error='No file selected'), 400
     print(f"Received file: {file.filename}, Content-Type: {file.content_type}")
     try:
-        # Validate file type and size
-        max_size = int(os.getenv('MAX_FILE_SIZE', 26214400))  # 25MB
+        max_size = int(os.getenv('MAX_FILE_SIZE', 26214400))
         allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp']
         if file.content_type not in allowed_types:
             return jsonify(success=False, error='Unsupported file type'), 400
         if file.content_length and file.content_length > max_size:
             return jsonify(success=False, error='File too large'), 400
 
-        # Generate unique ID for the image
         image_id = str(uuid.uuid4())
         original_blob_name = f"images/original/{image_id}_{file.filename}"
         processed_blob_name = f"images/processed/{image_id}_processed.jpg"
         ar_preview_blob_name = f"images/ar_preview/{image_id}_ar_preview.jpg"
 
-        # Save original image
         original_result = image_service.upload_original_image(file, original_blob_name)
         if not original_result.get('success'):
             return jsonify(success=False, error=original_result.get('error')), 422
 
-        # Reset file pointer for processing
         file.seek(0)
         processed_result = image_service.process_image(file, processed_blob_name)
         if not processed_result.get('success'):
             return jsonify(success=False, error=processed_result.get('error')), 422
 
-        # Generate AR preview
         file.seek(0)
-        image = Image.open(file)
+        image = Image.open(file).convert('RGB')
         image.thumbnail((800, 800))
         ar_preview_buffer = BytesIO()
         image.save(ar_preview_buffer, format='JPEG')
@@ -334,29 +386,23 @@ def upload_image():
 @app.route('/api/get-image/<path:blob_name>')
 def get_image(blob_name):
     try:
-        # Serve placeholder.jpg from local storage
         if blob_name == 'placeholder.jpg':
             local_path = os.path.join(os.path.dirname(__file__), "story_uploads", "placeholder.jpg")
             if os.path.exists(local_path) and os.path.isfile(local_path):
-                print(f"✅ Serving placeholder image from local: {local_path}")
                 return send_file(local_path, mimetype='image/jpeg')
             print(f"❌ Placeholder image not found at: {local_path}")
             return jsonify(success=False, error="Placeholder image not found"), 404
 
-        # Try GCS first
         if gcs_service:
-            print(f"📥 Attempting GCS download for: {blob_name}")
             data = gcs_service.download_file_as_bytes(blob_name)
             if data:
                 mimetype = mimetypes.guess_type(blob_name)[0] or 'application/octet-stream'
-                print(f"✅ Serving image from GCS: {blob_name}")
                 return send_file(BytesIO(data), mimetype=mimetype)
             print(f"⚠️ File not found in GCS: {blob_name}. Checking local fallback.")
 
-        # Fallback to local storage
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "story_uploads"))
         requested_path = os.path.abspath(os.path.join(base_dir, blob_name))
-        if not requested_path.startswith(base_dir):  # Security check
+        if not requested_path.startswith(base_dir):
             print(f"❌ Path Traversal Attempt: {blob_name}")
             return jsonify(success=False, error="Invalid path"), 403
         if os.path.exists(requested_path) and os.path.isfile(requested_path):
@@ -379,26 +425,33 @@ def generate_story():
         if not data:
             print("❌ No data provided for story generation")
             return jsonify(success=False, error="No data provided"), 400
-        story_data = ai_service.generate_enhanced_story(data)
-        if not story_data or not story_data.get('title'):
-            print(f"⚠️ Story generation failed or returned invalid data. Using fallback.")
-            fallback = ai_service._fallback_story(data, error_message="AI story generation failed.")
+        result = ai_service.generate_enhanced_story(data)
+        
+        if not result.get('success'):
+            print(f"⚠️ Story generation failed: {result.get('error')}")
+            fallback = result.get('story', ai_service._fallback_story(data, error_message="AI story generation failed."))
             story_response = {
                 'title': fallback.get('title'),
                 'fullStory': fallback.get('fullStory'),
                 'summary': fallback.get('summary'),
                 'tags': fallback.get('tags', []),
+                'heritageScore': fallback.get('heritageScore', 85),
+                'rarityScore': fallback.get('rarityScore', 80),
                 'metadata': {'generatedAt': datetime.now().isoformat(), 'error': True}
             }
             return jsonify(success=True, story=story_response)
+        
+        story_data = result.get('story', {})
         story_response = {
             'title': story_data.get('title'),
-            'fullStory': story_data.get('summary', ''),
+            'fullStory': story_data.get('fullStory', ''),
             'summary': story_data.get('summary', ''),
             'tags': story_data.get('tags', []),
+            'heritageScore': story_data.get('heritageScore', 85),
+            'rarityScore': story_data.get('rarityScore', 80),
             'metadata': {'generatedAt': datetime.now().isoformat(), 'error': False}
         }
-        print(f"✅ Story generated successfully")
+        print(f"✅ Story generated successfully: {story_data.get('title')}")
         return jsonify(success=True, story=story_response)
     except Exception as e:
         print(f"❌ Severe Error in Story Generation Endpoint: {e}")
@@ -407,15 +460,20 @@ def generate_story():
 @app.route('/api/preserve-story', methods=['POST'])
 @jwt_required()
 def preserve_story():
+    global blockchain_service
     try:
         claims = get_jwt()
         if claims.get('role') not in ['artisan', 'seller']:
             return jsonify(success=False, error="Only artisans can preserve stories"), 403
+        
+        current_username = get_jwt_identity()
 
         data = request.get_json()
         if not data:
             print("❌ Preserve story failed: No data provided")
             return jsonify(success=False, error="No data provided"), 400
+            
+        data['artisanUsername'] = current_username
 
         images = data.get('images', [])
         if not images or not isinstance(images, list):
@@ -428,7 +486,6 @@ def preserve_story():
             print(f"❌ Preserve story failed: Invalid processed_data or arPreview format: {processed_data}, {ar_preview_data}")
             return jsonify(success=False, error="Invalid image data format"), 400
 
-        # Get blob_name for processed and arPreview
         image_blob_name = processed_data.get('blob_name')
         ar_preview_blob_name = ar_preview_data.get('blob_name')
         if not image_blob_name:
@@ -452,6 +509,45 @@ def preserve_story():
             return jsonify(success=False, error=f"Failed to save story metadata: {user_story_result['error']}"), 500
 
         story_id = user_story_result['story_id']
+        
+        blockchain_result = None
+        try:
+            if blockchain_service is not None:
+                print(f"\n🔗 Preserving story on blockchain...")
+                story_data_for_blockchain = {
+                'story_id': story_id,
+                'title': data.get('storyTitle', 'Untitled Story'),
+                'artisan_name': data.get('artisanName', 'Unknown Artisan'),
+                'craft_type': data.get('craftType', ''),
+                'location': data.get('workshopLocation', ''),
+                'description': data.get('storyDescription', ''),
+                'materials': data.get('materialsUsed', ''),
+                'process': data.get('creationProcess', ''),
+                'cultural_significance': data.get('culturalSignificance', ''),
+                'timestamp': datetime.now().isoformat()
+                }
+            
+                blockchain_result = blockchain_service.preserve_story_on_chain(
+                story_id=story_id,
+                story_data=story_data_for_blockchain
+                )
+            
+                if blockchain_result.get('success'):
+                    print(f"✅ Story preserved on blockchain!")
+                    print(f"   TX: {blockchain_result.get('transaction_hash', 'N/A')}")
+                    print(f"   Block: #{blockchain_result.get('block_number', 'N/A')}")
+                    if 'explorer_url' in blockchain_result:
+                        print(f"   View: {blockchain_result['explorer_url']}")
+                else:
+                    print(f"⚠️ Blockchain preservation failed: {blockchain_result.get('error', 'Unknown error')}")
+        except NameError as e:
+            print(f"⚠️ Blockchain service not available: {e}")
+            blockchain_result = None
+        except Exception as blockchain_error:
+            print(f"⚠️ Blockchain error: {blockchain_error}")
+            blockchain_result = None
+
+        
         response_story_record = {
             'id': story_id,
             'title': data.get('storyTitle', 'Untitled Story'),
@@ -463,12 +559,124 @@ def preserve_story():
             'arPreviewUrl': ar_preview_blob_name,
             'preservedDate': datetime.now().isoformat(),
         }
+        
+        if blockchain_result and blockchain_result.get('success'):
+            response_story_record['blockchain'] = {
+                'transactionHash': blockchain_result.get('transaction_hash'),
+                'blockNumber': blockchain_result.get('block_number'),
+                'network': blockchain_result.get('network'),
+                'explorerUrl': blockchain_result.get('explorer_url'),
+                'storyHash': blockchain_result.get('story_hash')
+            }
 
         print(f"✅ Story metadata saved to GCS: {user_story_result['blob_name']}")
-        return jsonify(success=True, story=response_story_record, message='Story preserved!')
+        return jsonify(success=True, story=response_story_record, message='Story preserved on blockchain!')
     except Exception as e:
         print(f"❌ Story Preservation Error: {e}")
         return jsonify(success=False, error=f"Server error during story preservation: {str(e)}"), 500
+
+# ============================================================================
+#  REWORKED: ORDER REQUEST ENDPOINT (Saves to DB)
+# ============================================================================
+@app.route('/api/submit-order-request', methods=['POST'])
+def submit_order_request():
+    data = request.get_json()
+    if not data:
+        return jsonify(success=False, error="No data provided"), 400
+
+    try:
+        story_id = data.get('storyId')
+        buyer_name = data.get('name', 'N/A')
+        buyer_email = data.get('email', 'N/A')
+        buyer_phone = data.get('phone', 'N/A')
+        quantity = data.get('quantity', 1)
+        customization = data.get('customization', 'None')
+
+        if not story_id or not buyer_email:
+             return jsonify(success=False, error="Story ID and Email are required"), 400
+
+        if not gcs_service:
+            return jsonify(success=False, error="GCS service is not available"), 500
+
+        # Find the story JSON to get the artisan's username
+        blob_name = f"user_stories/{story_id}.json"
+        story_bytes = gcs_service.download_file_as_bytes(blob_name)
+        if not story_bytes:
+            return jsonify(success=False, error="Story file not found"), 404
+        
+        story_data_full = json.loads(story_bytes.decode('utf-8'))
+        story_info = story_data_full.get('data', {})
+        
+        artisan_username = story_info.get('artisanUsername')
+        if not artisan_username:
+            artisan_username = story_info.get('artisanName') # Fallback
+
+        if not artisan_username:
+            return jsonify(success=False, error="Could not find artisan for this story"), 404
+            
+        story_title = story_info.get('storyTitle', 'Untitled Craft')
+
+        # Find the artisan's user ID from the User database
+        artisan_user = User.query.filter_by(username=artisan_username).first()
+        if not artisan_user:
+            return jsonify(success=False, error=f"Artisan user '{artisan_username}' not found in database"), 404
+            
+        artisan_db_id = artisan_user.id
+        
+        # Create new OrderRequest object
+        new_order = OrderRequest(
+            artisan_id=artisan_db_id,
+            story_id=story_id,
+            story_title=story_title,
+            buyer_name=buyer_name,
+            buyer_email=buyer_email,
+            buyer_phone=buyer_phone,
+            quantity=quantity,
+            customization=customization,
+            timestamp=datetime.utcnow(),
+            is_read=False
+        )
+
+        # Save to database
+        db.session.add(new_order)
+        db.session.commit()
+
+        print(f"✅ New order request saved to DB for artisan: {artisan_username}")
+        return jsonify(success=True, message="Your request has been sent to the artisan!")
+
+    except Exception as e:
+        print(f"❌ Error in submit_order_request: {str(e)}")
+        return jsonify(success=False, error=f"Server error: {str(e)}"), 500
+
+
+# ============================================================================
+#  NEW: GET ARTISAN'S ORDERS ENDPOINT
+# ============================================================================
+@app.route('/api/get-my-orders', methods=['GET'])
+@jwt_required()
+def get_my_orders():
+    try:
+        current_username = get_jwt_identity()
+        user = User.query.filter_by(username=current_username).first()
+        
+        if not user:
+            return jsonify(success=False, error="User not found"), 404
+            
+        if user.role not in ['artisan', 'seller']:
+            return jsonify(success=False, error="Only artisans can view orders"), 403
+
+        # Find all orders linked to this user's ID, newest first
+        orders = OrderRequest.query.filter_by(artisan_id=user.id).order_by(OrderRequest.timestamp.desc()).all()
+        
+        # Convert list of OrderRequest objects to a list of dictionaries
+        orders_list = [order.to_dict() for order in orders]
+        
+        return jsonify(success=True, orders=orders_list)
+
+    except Exception as e:
+        print(f"❌ Error in get_my_orders: {str(e)}")
+        return jsonify(success=False, error=f"Server error: {str(e)}"), 500
+
 
 @app.route('/api/buyer-collection', methods=['GET'])
 def get_buyer_collection():
@@ -485,10 +693,9 @@ def get_buyer_collection():
             else:
                 story_files = list_result.get('files', [])
                 print(f"✅ Found {len(story_files)} potential story files in GCS.")
-                for blob_name in reversed(story_files):  # Show newest first
+                for blob_name in reversed(story_files):
                     if blob_name.endswith('.json') and blob_name != 'user_stories/':
                         try:
-                            print(f"✅ Downloaded {blob_name} from GCS")
                             story_bytes = gcs_service.download_file_as_bytes(blob_name)
                             if not story_bytes:
                                 print(f"   ❌ Failed to download: {blob_name}")
@@ -496,7 +703,6 @@ def get_buyer_collection():
                                 continue
                             try:
                                 story_data_full = json.loads(story_bytes.decode('utf-8'))
-                                # Handle double-encoded JSON
                                 while isinstance(story_data_full, str):
                                     print(f"   ⚠️ JSON is a string, attempting to parse again: {blob_name}")
                                     try:
@@ -512,17 +718,11 @@ def get_buyer_collection():
                                     continue
                                 
                                 story_data = story_data_full.get('data', {})
-                                
-                                # --- START: ROBUST IMAGE DATA EXTRACTION ---
                                 images = story_data_full.get('images', [])
-                                # Safely get the first image entry, ensuring it's a dictionary
                                 image_one = images[0] if images and isinstance(images[0], dict) else {}
-                                
                                 processed_img = image_one.get('processed', {})
                                 ar_preview_img = image_one.get('arPreview', {})
-                                # --- END: ROBUST IMAGE DATA EXTRACTION ---
                                 
-                                # Process image blob_name
                                 image_blob_name = processed_img.get('blob_name')
                                 if not image_blob_name:
                                     image_blob_name = processed_img.get('url') or processed_img.get('processed_url')
@@ -533,10 +733,8 @@ def get_buyer_collection():
                                         else:
                                             image_blob_name = None
                                 if not image_blob_name:
-                                    print(f"   ⚠️ No image blob or URL found, using placeholder: {blob_name}")
                                     image_blob_name = 'placeholder.jpg'
                                 
-                                # Process AR preview blob_name
                                 ar_preview_blob_name = ar_preview_img.get('blob_name')
                                 if not ar_preview_blob_name:
                                     ar_preview_blob_name = ar_preview_img.get('url') or ar_preview_img.get('processed_url')
@@ -547,14 +745,12 @@ def get_buyer_collection():
                                         else:
                                             ar_preview_blob_name = None
                                 
-                                # Generate AR preview if missing
                                 if not ar_preview_blob_name and image_blob_name and image_blob_name != 'placeholder.jpg':
                                     print(f"   ⚠️ No AR preview found, generating from {image_blob_name}")
                                     ar_preview_result = generate_ar_preview(image_blob_name, story_data_full.get('id', str(uuid.uuid4())))
                                     if ar_preview_result.get('success'):
                                         ar_preview_blob_name = ar_preview_result.get('blob_name')
-                                        # Update story JSON with AR preview
-                                        if images and isinstance(images[0], dict): # Ensure images[0] is still a dict
+                                        if images and isinstance(images[0], dict):
                                             images[0]['arPreview'] = {'blob_name': ar_preview_blob_name}
                                             story_data_full['images'] = images
                                             try:
@@ -576,10 +772,8 @@ def get_buyer_collection():
                                         errors.append(f"Failed to generate AR preview: {ar_preview_result.get('error')}")
                                         ar_preview_blob_name = 'placeholder.jpg'
                                 elif not ar_preview_blob_name:
-                                    print(f"   ⚠️ No AR preview blob or URL found, using placeholder: {blob_name}")
                                     ar_preview_blob_name = 'placeholder.jpg'
 
-                                # Validate image and AR preview existence
                                 for blob in [(image_blob_name, 'image'), (ar_preview_blob_name, 'AR preview')]:
                                     blob_name_check, blob_type = blob
                                     blob_exists = False
@@ -589,7 +783,6 @@ def get_buyer_collection():
                                     elif hasattr(gcs_service, 'file_exists'):
                                         try:
                                             blob_exists = gcs_service.file_exists(blob_name_check)
-                                            print(f"✅ Checked file existence for {blob_name_check}: {'exists' if blob_exists else 'missing'}")
                                         except Exception as e:
                                             print(f"   ⚠️ Failed to validate {blob_type} blob {blob_name_check}: {str(e)}")
                                     else:
@@ -610,6 +803,7 @@ def get_buyer_collection():
                                     'location': story_data.get('workshopLocation', ''),
                                     'craftType': story_data.get('craftType', ''),
                                     'summary': story_data.get('storyDescription', '')[:200],
+                                    'fullStory': story_data.get('storyDescription', ''),
                                     'imageUrl': image_blob_name,
                                     'arPreviewUrl': ar_preview_blob_name,
                                     'preservedDate': story_data_full.get('preservedDate', None),
@@ -632,7 +826,6 @@ def get_buyer_collection():
         print("⚠️ GCS service unavailable, returning sample data only")
         errors.append("GCS service not initialized")
 
-    # Sample data with local/GCS placeholder images
     sample_data = [
         {
             'id': 'sample-1',
@@ -641,6 +834,7 @@ def get_buyer_collection():
             'imageUrl': 'placeholder.jpg',
             'arPreviewUrl': 'placeholder.jpg',
             'summary': "Intricate Warli painting...",
+            'fullStory': "This intricate Warli painting depicts the Sun God's Chariot, a powerful symbol of life and energy. Created by the legendary Jivya Soma Mashe, it uses the traditional techniques of rice paste on an earthen background.",
             'craftType': 'Painting',
             'location': 'Maharashtra, India'
         },
@@ -651,6 +845,7 @@ def get_buyer_collection():
             'imageUrl': 'placeholder.jpg',
             'arPreviewUrl': 'placeholder.jpg',
             'summary': "Masterpiece using soil oxidation...",
+            'fullStory': "A masterpiece of Bidriware, this Royal Elephant is crafted by National Award winner Rashid Ahmed Quadri. The striking silver inlay is set against a deep black, achieved through a unique oxidation process using soil from the Bidar fort.",
             'craftType': 'Metalwork',
             'location': 'Karnataka, India'
         },
@@ -661,6 +856,7 @@ def get_buyer_collection():
             'imageUrl': 'placeholder.jpg',
             'arPreviewUrl': 'placeholder.jpg',
             'summary': "Iconic pottery without clay...",
+            'fullStory': "This iconic Azure Vase is a testament to Jaipur's Blue Pottery, a craft revived by Leela Bordia. Uniquely, it uses no clay; instead, it's made from quartz powder, glass, and fuller's earth, resulting in its vibrant, timeless color.",
             'craftType': 'Pottery',
             'location': 'Rajasthan, India'
         }
@@ -738,7 +934,6 @@ def debug_gcs():
                         continue
                     try:
                         story_data = json.loads(story_bytes.decode('utf-8'))
-                        # Handle double-encoded JSON
                         while isinstance(story_data, str):
                             try:
                                 story_data = json.loads(story_data)
@@ -761,14 +956,10 @@ def debug_gcs():
                             })
                             continue
                         
-                        # --- START: ROBUST IMAGE DATA EXTRACTION (DEBUG) ---
                         images = story_data.get('images', [])
-                        # Safely get the first image entry, ensuring it's a dictionary
                         image_one = images[0] if images and isinstance(images[0], dict) else {}
-                        
                         processed_img = image_one.get('processed', {})
                         ar_preview_img = image_one.get('arPreview', {})
-                        
                         image_blob_name = processed_img.get('blob_name')
                         ar_preview_blob_name = ar_preview_img.get('blob_name')
                         
@@ -783,14 +974,12 @@ def debug_gcs():
                             ar_preview_blob_name = ar_preview_url
                             if gcs_service and ar_preview_blob_name and ar_preview_blob_name.startswith(f"https://storage.googleapis.com/{gcs_service.bucket_name}/"):
                                 ar_preview_blob_name = ar_preview_blob_name[len(f"https://storage.googleapis.com/{gcs_service.bucket_name}/"):]
-                        # --- END: ROBUST IMAGE DATA EXTRACTION (DEBUG) ---
 
-                        # Generate AR preview if missing
                         if not ar_preview_blob_name and image_blob_name and image_blob_name != 'placeholder.jpg':
                             ar_preview_result = generate_ar_preview(image_blob_name, story_data.get('id', str(uuid.uuid4())))
                             if ar_preview_result.get('success'):
                                 ar_preview_blob_name = ar_preview_result.get('blob_name')
-                                if images and isinstance(images[0], dict): # Ensure images[0] is a dict
+                                if images and isinstance(images[0], dict):
                                     story_data['images'][0]['arPreview'] = {'blob_name': ar_preview_blob_name}
                                     try:
                                         update_result = gcs_service.upload_data(
@@ -914,6 +1103,7 @@ if __name__ == '__main__':
 
     with app.app_context():
         try:
+            # This will create both the User and OrderRequest tables
             db.create_all()
             print("✅ Database tables ensured.")
         except Exception as e:
@@ -922,3 +1112,5 @@ if __name__ == '__main__':
     print(f'🌟 GenX Story Preservation Platform Starting...')
     print(f'📖 Story API: http://localhost:{PORT}')
     socketio.run(app, debug=True, port=PORT, host='0.0.0.0', allow_unsafe_werkzeug=True)
+
+

@@ -1,5 +1,6 @@
+
 // import React, { Suspense, useMemo, useEffect, useRef, useState } from 'react';
-// import { Canvas } from '@react-three/fiber';
+// import { Canvas, useFrame } from '@react-three/fiber';
 // import { OrbitControls, useTexture, Text } from '@react-three/drei';
 // import * as THREE from 'three';
 
@@ -18,12 +19,13 @@
 //   );
 // }
 
-// // ImagePlane renders the AI-generated image in 3D
-// function ImagePlane({ imageUrl }) {
+// // 🎨 Floating image plane with transparency and animation
+// function FloatingImagePlane({ imageUrl }) {
+//   const meshRef = useRef();
 //   const texture = useTexture(imageUrl);
+
 //   const { naturalWidth, naturalHeight } = texture.image;
 //   const aspect = naturalWidth / naturalHeight;
-
 //   const planeSize = 3;
 //   const planeWidth = aspect >= 1 ? planeSize : planeSize * aspect;
 //   const planeHeight = aspect >= 1 ? planeSize / aspect : planeSize;
@@ -32,17 +34,29 @@
 //   texture.wrapT = THREE.ClampToEdgeWrapping;
 //   texture.minFilter = THREE.LinearFilter;
 
+//   // Subtle floating animation (hover + rotation)
+//   useFrame(({ clock }) => {
+//     if (meshRef.current) {
+//       meshRef.current.position.y = Math.sin(clock.getElapsedTime()) * 0.05 + 0.2;
+//       meshRef.current.rotation.y = Math.sin(clock.getElapsedTime() * 0.5) * 0.1;
+//     }
+//   });
+
 //   return (
-//     <mesh position={[0, 0, 0]}>
+//     <mesh ref={meshRef} position={[0, 0.2, 0]}>
 //       <planeGeometry args={[planeWidth, planeHeight]} />
-//       <meshStandardMaterial map={texture} side={THREE.DoubleSide} />
+//       <meshStandardMaterial
+//         map={texture}
+//         transparent={true}
+//         opacity={0.85} // semi-transparent for AR look
+//         side={THREE.DoubleSide}
+//       />
 //     </mesh>
 //   );
 // }
 
-// // Background that shows live webcam feed
+// // 📷 Live camera feed background
 // function CameraBackground() {
-//   const videoRef = useRef(null);
 //   const [videoTexture, setVideoTexture] = useState(null);
 
 //   useEffect(() => {
@@ -56,8 +70,6 @@
 //       try {
 //         stream = await navigator.mediaDevices.getUserMedia({ video: true });
 //         video.srcObject = stream;
-
-//         // Wait until video is playing before creating texture
 //         video.onloadedmetadata = () => {
 //           video.play();
 //           const texture = new THREE.VideoTexture(video);
@@ -74,9 +86,7 @@
 //     initCamera();
 
 //     return () => {
-//       if (stream) {
-//         stream.getTracks().forEach((track) => track.stop());
-//       }
+//       if (stream) stream.getTracks().forEach((t) => t.stop());
 //     };
 //   }, []);
 
@@ -90,7 +100,7 @@
 //   );
 // }
 
-// // Main AR Viewer component
+// // 🌟 Main AR Image Viewer Component
 // export default function ArImageViewer({ imageUrl }) {
 //   const viewerKey = useMemo(() => imageUrl + Date.now(), [imageUrl]);
 
@@ -101,20 +111,27 @@
 //   return (
 //     <div style={{ width: '100%', height: '100%', background: 'black' }}>
 //       <Canvas key={viewerKey} camera={{ position: [0, 0, 3.5], fov: 50 }}>
-//         <ambientLight intensity={1.5} />
-//         <directionalLight position={[3, 3, 5]} intensity={1} />
+//         {/* Lighting for realism */}
+//         <ambientLight intensity={1.2} />
+//         <directionalLight position={[2, 2, 3]} intensity={1.2} />
+//         <pointLight position={[0, 0, 5]} intensity={1.5} />
 
-//         {/* Background camera feed */}
+//         {/* Camera feed in background */}
 //         <Suspense fallback={<Loader message="Starting camera..." />}>
 //           <CameraBackground />
 //         </Suspense>
 
-//         {/* Foreground image plane */}
+//         {/* Floating image plane with transparency */}
 //         <Suspense fallback={<Loader />}>
-//           <ImagePlane imageUrl={imageUrl} />
+//           <FloatingImagePlane imageUrl={imageUrl} />
 //         </Suspense>
 
-//         <OrbitControls enableZoom enablePan={false} minDistance={2} maxDistance={10} />
+//         <OrbitControls
+//           enableZoom
+//           enablePan={false}
+//           minDistance={2}
+//           maxDistance={10}
+//         />
 //       </Canvas>
 //     </div>
 //   );
@@ -123,7 +140,15 @@
 
 
 
-
+/*
+================================================================================
+  src/ArImageViewer.js
+  
+  This is your new 2D-on-Camera AR preview component.
+  The cleanup function inside CameraBackground() will stop the camera
+  stream when this component is closed, fixing the bug.
+================================================================================
+*/
 import React, { Suspense, useMemo, useEffect, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, useTexture, Text } from '@react-three/drei';
@@ -183,39 +208,86 @@ function FloatingImagePlane({ imageUrl }) {
 // 📷 Live camera feed background
 function CameraBackground() {
   const [videoTexture, setVideoTexture] = useState(null);
+  const [error, setError] = useState(null); // State to show camera error
 
   useEffect(() => {
     let stream;
-    const video = document.createElement('video');
-    video.autoplay = true;
-    video.muted = true;
-    video.playsInline = true;
+    let video;
+    let unmounted = false; // Flag to prevent state updates if unmounted
 
     const initCamera = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('Camera API not supported by this browser.');
+        }
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'environment' } // Prefer rear camera
+        });
+        
+        if (unmounted) {
+          // Component unmounted while waiting for permission
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
+        video = document.createElement('video');
+        video.autoplay = true;
+        video.muted = true;
+        video.playsInline = true;
         video.srcObject = stream;
+        
         video.onloadedmetadata = () => {
+          if (unmounted) return;
           video.play();
           const texture = new THREE.VideoTexture(video);
           texture.minFilter = THREE.LinearFilter;
           texture.magFilter = THREE.LinearFilter;
-          texture.format = THREE.RGBFormat;
+          texture.format = THREE.RGBAFormat; // Use RGBAFormat
           setVideoTexture(texture);
         };
+        
+        video.onerror = (e) => {
+          if (unmounted) return;
+          console.error('Video element error:', e);
+          setError('Failed to play camera stream.');
+        }
+
       } catch (err) {
+        if (unmounted) return;
         console.error('Camera access error:', err);
+        if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+          setError('Camera permission denied. Please allow camera access.');
+        } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
+          setError('No camera found. Using fallback.');
+        } else {
+          setError('Error starting camera. Using fallback.');
+        }
       }
     };
 
     initCamera();
 
     return () => {
-      if (stream) stream.getTracks().forEach((t) => t.stop());
+      unmounted = true; // Set unmounted flag
+      if (stream) {
+        stream.getTracks().forEach((t) => t.stop());
+        console.log("Camera stream stopped.");
+      }
+      if (video) {
+        video.srcObject = null; // Disconnect stream
+      }
     };
   }, []);
 
-  if (!videoTexture) return null;
+  // Show error message if camera fails
+  if (error) {
+    return <Loader message={error} />;
+  }
+  
+  // Show nothing (and let loader in Suspense handle) if no texture AND no error
+  if (!videoTexture) {
+    return null; 
+  }
 
   return (
     <mesh position={[0, 0, -1]}>
@@ -226,7 +298,8 @@ function CameraBackground() {
 }
 
 // 🌟 Main AR Image Viewer Component
-export default function ArImageViewer({ imageUrl }) {
+export default function ArImageViewer({ imageUrl, onError }) {
+  // Use key to force re-mount, which triggers cleanup
   const viewerKey = useMemo(() => imageUrl + Date.now(), [imageUrl]);
 
   if (!imageUrl) {

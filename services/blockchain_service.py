@@ -1,49 +1,31 @@
-# import os
-# import random
-# from dotenv import load_dotenv
-
-# load_dotenv()
-
-# def mint_nft(craft_data):
-#     """Mocks the minting of an NFT."""
-#     try:
-#         mock_nft_data = {
-#             'tokenId': random.randint(1000, 9999),
-#             'contractAddress': os.getenv('CONTRACT_ADDRESS', '0x123...abc'),
-#             'transactionHash': '0x' + ''.join([format(random.randint(0, 15), 'x') for _ in range(64)]),
-#             'network': 'sepolia (Simulated)',
-#         }
-#         print(f"✅ NFT minted (simulated): {mock_nft_data['tokenId']}")
-#         return mock_nft_data
-#     except Exception as error:
-#         raise Exception(f'Failed to mint NFT: {error}')
-
-
-
-import os
-import random
-from dotenv import load_dotenv
+﻿"""Simulated Blockchain Service"""
+import os, random, hashlib, json
+from datetime import datetime
 
 class BlockchainService:
     def __init__(self):
-        load_dotenv()
-        self.contract_address = os.getenv('CONTRACT_ADDRESS', '0x742d35Cc6634C0532925a3b8D8f8f88b8C0eE8f3')
+        self.network = 'simulated'
+        self.story_registry = {}
+        print("Simulated Blockchain Service initialized")
 
-    def mint_nft(self, craft_data):
-        """Mocks the minting of an NFT."""
+    def preserve_story_on_chain(self, story_id, story_data):
         try:
-            mock_nft_data = {
-                'tokenId': random.randint(10000, 99999),
-                'contractAddress': self.contract_address,
-                'transactionHash': '0x' + ''.join([format(random.randint(0, 15), 'x') for _ in range(64)]),
-                'network': 'Sepolia (Simulated)',
-                'status': 'verified'
+            story_string = json.dumps(story_data, sort_keys=True)
+            story_hash = hashlib.sha256(story_string.encode()).hexdigest()
+            tx_hash = '0x' + ''.join([format(random.randint(0, 15), 'x') for _ in range(64)])
+            block_number = random.randint(1000000, 9999999)
+            result = {
+                'success': True,
+                'transaction_hash': tx_hash,
+                'block_number': block_number,
+                'story_hash': story_hash,
+                'network': 'Simulated',
+                'timestamp': datetime.utcnow().isoformat()
             }
-            print(f"✅ NFT minted (simulated): {mock_nft_data['tokenId']}")
-            return mock_nft_data
-        except Exception as error:
-            print(f"❌ Mock minting failed: {error}")
-            raise Exception(f'Failed to mint NFT: {error}')
+            self.story_registry[story_hash] = {'story_id': story_id, 'tx_hash': tx_hash}
+            print(f"Story preserved (simulated): {tx_hash[:16]}...")
+            return result
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
 
-# Initialize Blockchain service
 blockchain_service = BlockchainService()
