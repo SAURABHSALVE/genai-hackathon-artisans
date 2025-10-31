@@ -1414,6 +1414,9 @@
 
 // export default SellerProfile;
 
+
+
+
 // src/SellerProfile.js
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1654,9 +1657,8 @@ const SellerProfile = () => {
     setUploadedImages(prev => prev.filter(img => img.id !== imageId));
   };
 
-  // --- OMITTED SUCCESS SCREEN FOR BREVITY (it is unchanged) ---
+  // --- Success Screen ---
   if (submissionResult) {
-    // ... (Your existing success screen JSX)
     return (
       <div className="wizard-container">
         <motion.div 
@@ -1683,7 +1685,7 @@ const SellerProfile = () => {
 
   return (
     <div className="wizard-container">
-      {/* --- OMITTED WIZARD HEADER (unchanged) --- */}
+      {/* --- Wizard Header --- */}
       <div className="wizard-header">
         <h1 className="form-section-title">Preserve Your Craft Story</h1>
         <div className="wizard-progress">
@@ -1807,14 +1809,89 @@ const SellerProfile = () => {
           </motion.div>
         )}
 
-        {/* --- OMITTED STEP 2 & 3 (unchanged) --- */}
+        {/* === STEP 2: RESTORED === */}
         {currentStep === 2 && (
           <motion.div
             key="step2"
-            // ... (rest of step 2 JSX is unchanged)
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -50 }}
+            transition={{ duration: 0.3 }}
           >
-             <h2 className="form-section-title" style={{textAlign: 'left'}}>Step 2: Upload Craft Images</h2>
-             {/* ... (all step 2 content) ... */}
+            <h2 className="form-section-title" style={{textAlign: 'left'}}>Step 2: Upload Craft Images</h2>
+            <p className="form-subtitle" style={{textAlign: 'left', margin: '-1rem 0 1.5rem 0'}}>
+              Upload high-quality images (JPEG, PNG, WebP). The first image will be the cover.
+            </p>
+            <div
+              className={`drag-drop-zone ${dragActive ? 'drag-over' : ''}`}
+              onDragEnter={handleDrag}
+              onDragOver={handleDrag}
+              onDragLeave={handleDrag}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <div className="upload-icon" style={{ fontSize: '3rem', marginBottom: '1rem' }}>📸</div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/jpeg,image/png,image/gif,image/bmp,image.webp"
+                multiple
+                onChange={handleFileInput}
+                style={{ display: 'none' }}
+              />
+              <p style={{margin: '0 0 0.5rem 0', fontWeight: '600'}}>Drag & drop images here</p>
+              <p style={{margin: 0, color: 'var(--text-secondary)'}}>or</p>
+              <button
+                type="button"
+                className="wizard-nav-btn secondary"
+                onClick={(e) => {e.stopPropagation(); fileInputRef.current.click();}}
+                disabled={isUploading}
+                style={{width: 'auto', padding: '0.5rem 1.5rem', marginTop: '0.5rem'}}
+              >
+                {isUploading ? 'Uploading...' : 'Select Images'}
+              </button>
+            </div>
+            
+            {isUploading && (
+              <div className="upload-progress">
+                <div className="spinner"></div>
+                <span>Uploading images...</span>
+              </div>
+            )}
+
+            {uploadedImages.length > 0 && (
+              <div className="uploaded-images-section">
+                <h3>Uploaded Images ({uploadedImages.length})</h3>
+                <div className="uploaded-images-grid">
+                  {uploadedImages.map((img) => {
+                    const blobName = img.processed?.blob_name;
+                    const srcUrl = blobName
+                      ? `${API_URL}/api/get-image/${blobName}`
+                      : DEFAULT_PLACEHOLDER;
+                      
+                    return (
+                      <div key={img.id} className="uploaded-image-item">
+                        <img
+                          src={srcUrl}
+                          alt={img.fileName}
+                          className="uploaded-image-preview"
+                          onError={(e) => { e.target.src = DEFAULT_PLACEHOLDER; }}
+                        />
+                        <div className="image-overlay">
+                          <button 
+                            className="remove-image-btn"
+                            onClick={() => removeImage(img.id)}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <p className="image-filename">{img.fileName}</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
             <div className="wizard-navigation">
               <button className="wizard-nav-btn secondary" onClick={prevStep}>
                 ← Back
@@ -1830,13 +1907,52 @@ const SellerProfile = () => {
           </motion.div>
         )}
         
+        {/* === STEP 3: RESTORED === */}
         {currentStep === 3 && (
           <motion.div
             key="step3"
-            // ... (rest of step 3 JSX is unchanged)
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -50 }}
+            transition={{ duration: 0.3 }}
           >
             <h2 className="form-section-title" style={{textAlign: 'left'}}>Step 3: Craft Details</h2>
-            {/* ... (all step 3 content) ... */}
+            <p className="form-subtitle" style={{textAlign: 'left', margin: '-1rem 0 1.5rem 0'}}>
+              Provide details for the AI to generate your story.
+            </p>
+            <div className="story-input-group">
+              <label>Materials Used</label>
+              <input
+                type="text"
+                name="materialsUsed"
+                value={formData.materialsUsed}
+                onChange={handleInputChange}
+                placeholder="e.g., Clay, Wood, Natural Dyes, Silver"
+                className="story-input"
+              />
+            </div>
+            <div className="story-input-group">
+              <label>Creation Process</label>
+              <textarea
+                name="creationProcess"
+                value={formData.creationProcess}
+                onChange={handleInputChange}
+                placeholder="Briefly describe how the craft is made (e.g., 'Hand-spun on a traditional loom...')"
+                className="story-textarea"
+                rows={3}
+              />
+            </div>
+            <div className="story-input-group">
+              <label>Cultural Significance</label>
+              <textarea
+                name="culturalSignificance"
+                value={formData.culturalSignificance}
+                onChange={handleInputChange}
+                placeholder="What does this craft mean? (e.g., 'Used in wedding ceremonies...')"
+                className="story-textarea"
+                rows={3}
+              />
+            </div>
             <div className="wizard-navigation">
               <button className="wizard-nav-btn secondary" onClick={prevStep}>
                 ← Back
@@ -1897,17 +2013,22 @@ const SellerProfile = () => {
               <h3>Preview (This is how it will appear in the gallery)</h3>
               <div className="craft-card" style={{gridTemplateColumns: '1fr', maxWidth: '600px', margin: '1rem auto'}}>
                 
-                {/* --- OMITTED AR VIEWER (unchanged) --- */}
+                {/* --- AR Viewer Preview --- */}
                 <div className="craft-image" style={{ height: '300px', width: '100%', background: '#000', borderRadius: '0.75rem', overflow: 'hidden' }}>
                   {uploadedImages[0] ? (() => {
                      const blobName = uploadedImages[0].processed?.blob_name;
                      if (!blobName) {
                        return <img src={DEFAULT_PLACEHOLDER} alt="Placeholder" className="craft-image" style={{height: '300px', objectFit: 'cover'}} />;
                      }
-                     const fullProxiedUrl = `${API_URL}/api/get-image/${blobName}`;
+                     // Use the AR preview URL if it exists, otherwise fallback to the processed image
+                     const arPreviewBlob = uploadedImages[0].arPreview?.blob_name;
+                     const previewUrl = arPreviewBlob
+                        ? `${API_URL}/api/get-image/${arPreviewBlob}`
+                        : `${API_URL}/api/get-image/${blobName}`; // Fallback
+
                      return (
                         <ArImageViewer
-                          imageUrl={fullProxiedUrl}
+                          imageUrl={previewUrl}
                           onError={(err) => {
                             console.error('AR Viewer Error in preview:', err);
                           }}
@@ -1927,7 +2048,7 @@ const SellerProfile = () => {
                   </div>
                   {/* === END: PRICE DISPLAY === */}
 
-                  <p className="craft-description">{formData.storyDescription.substring(0, 150) || 'Your story description will appear here.'}...</p>
+                  <p className="craft-description" style={{ display: 'block' }}>{formData.storyDescription.substring(0, 150) || 'Your story description will appear here.'}...</p>
                   <p className="story-artisan" style={{color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.5rem'}}>
                     by {formData.artisanName} • {formData.craftType}
                   </p>
