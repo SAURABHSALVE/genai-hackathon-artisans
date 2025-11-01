@@ -594,6 +594,7 @@ body::after {
   flex-grow: 1; min-width: 250px;
 }
 /* .craft-grid and .craft-card styles are now in section [15] */
+/* DELETING old .share-button styles that were here */
 
 
 /* [7] Drag & Drop, Upload Styles */
@@ -732,7 +733,7 @@ body::after {
   .role-selector { grid-template-columns: 1fr; gap: 1rem; } /* Stack cards on mobile */
   .wizard-navigation { flex-direction: column; gap: 0.8rem; } /* Tighter gap */
   .wizard-nav-btn { width: 100%; }
-  .uploaded-images-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.8rem; } /* Smaller images */
+  .uploaded-images-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.8rem; } /* Smaller images */
   .uploaded-image-preview { height: 120px; }
   .drag-drop-zone { padding: 2rem 1rem; }
   .map-pin { width: 16px; height: 16px; border-width: 1px;} /* Smaller pins */
@@ -953,8 +954,9 @@ body::after {
   margin-bottom: 0.5rem;
 }
 
+/* === CSS UPDATE: VISUAL HIERARCHY === */
 .product-page-meta {
-  font-size: 0.95rem;
+  font-size: 1.05rem; /* <-- Increased size */
   color: var(--text-secondary);
   margin-bottom: 1rem;
 }
@@ -998,13 +1000,22 @@ body::after {
   margin-bottom: 0.75rem;
 }
 
+/* === CSS UPDATE: READABILITY === */
 .product-story-description p,
 .product-connect-artisan p {
-  font-size: 1rem;
-  line-height: 1.6;
+  font-size: 1.05rem; /* <-- Increased size */
+  line-height: 1.7; /* <-- Increased line height */
   color: var(--text-primary); /* Lighter text for story */
   margin-bottom: 1.5rem;
 }
+
+/* === CSS UPDATE: "Listen" button polish === */
+.product-story-description .action-btn.tertiary:hover {
+  transform: translateY(-2px) scale(1.03); /* Add subtle lift */
+  color: var(--accent-glow); /* Match "Listen" concept */
+  border-color: var(--accent-glow);
+}
+
 
 .product-connect-artisan .action-btn {
   width: auto; /* Override large for this specific button */
@@ -2018,14 +2029,15 @@ transform: translate(-50%, -50%); /* Add */
   text-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
 }
 
+/* === CSS UPDATE: EMPHASIZE PRICE === */
 /* Adds price to the popup modal */
 .product-page-price {
-  font-size: 2rem;
+  font-size: 2.5rem; /* <-- Increased size */
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 1.5rem;
-  /* === ADVANCED EFFECT: Add text glow === */
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+  /* === ADVANCED EFFECT: Brighter text glow === */
+  text-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
 }
 
 /* Updates the Order Card in the Dashboard (v6 style) */
@@ -2360,4 +2372,100 @@ transform: translate(-50%, -50%); /* Add */
   .order-detail-actions .auth-button {
     width: 100%;
   }
+}
+/*
+================================================================================
+  [23] ADVANCED: Category Filter Styles
+  (Replaces the old .share-button style for the filter bar)
+================================================================================
+*/
+.category-filters {
+  display: flex;
+  gap: 0.75rem; /* A bit more space */
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.category-filter-btn {
+  /* Base styles (inactive) */
+  background: rgba(148, 163, 184, 0.1); /* Subtle dark background */
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  padding: 0.6rem 1.2rem;
+  border-radius: 50px; /* === UPDATE: Pill shape === */
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex; /* === UPDATE: For icon alignment === */
+  align-items: center;
+  gap: 0.5em; /* Space between icon and text */
+  
+  /* === ADVANCED: Transition === */
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* === NEW: Icon styling (optional) === */
+/* If you add a <span> inside, it will animate */
+.category-filter-btn span {
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.category-filter-btn:hover {
+  /* === ADVANCED: Hover (inactive) === */
+  transform: translateY(-3px);
+  color: var(--text-primary);
+  border-color: var(--primary-glow);
+  background: rgba(139, 92, 246, 0.1);
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.1);
+}
+
+/* === NEW: Icon hover effect === */
+.category-filter-btn:hover span {
+  transform: scale(1.2) rotate(-10deg);
+}
+
+.category-filter-btn:active {
+  /* Click effect */
+  transform: translateY(-1px) scale(0.98);
+}
+
+.category-filter-btn.active {
+  /* === ADVANCED: Active State (like the user's image) === */
+  background: linear-gradient(90deg, var(--primary-glow), var(--secondary-glow));
+  color: #fff;
+  border-color: var(--primary-glow);
+  font-weight: 600;
+  transform: translateY(-3px);
+  box-shadow: 0 5px 20px rgba(139, 92, 246, 0.3), 0 2px 10px rgba(236, 72, 153, 0.2);
+
+  /* === ADVANCED: Add animated gradient to active button === */
+  background-size: 200% auto;
+  animation: gradient-flow 3s ease infinite;
+}
+
+/* === NEW: Focus Effect === */
+/* When a filter is active, fade out the ones that are NOT active */
+.category-filters:has(.category-filter-btn.active) .category-filter-btn:not(.active) {
+  opacity: 0.6;
+  transform: scale(0.95);
+}
+/* Make sure hover on inactive buttons still works in focus mode */
+.category-filters:has(.category-filter-btn.active) .category-filter-btn:not(.active):hover {
+  opacity: 1;
+  transform: translateY(-3px) scale(1.05); /* Make it "pop" a bit more */
+  color: var(--text-primary);
+  border-color: var(--primary-glow);
+  background: rgba(139, 92, 246, 0.1);
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.1);
+}
+
+
+@keyframes gradient-flow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
