@@ -1,1 +1,3 @@
-web: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 300 --workers 2 --worker-class eventlet
+# Procfile content in the root of your repository
+# Builds React client, then starts the Gunicorn server for the Python backend.
+web: sh -c "npm install --prefix client && npm run build --prefix client && gunicorn --bind :$PORT --workers 2 --threads 4 server.app:app"
