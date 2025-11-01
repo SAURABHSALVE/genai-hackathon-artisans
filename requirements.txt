@@ -34,3 +34,7 @@ web3==6.12.0
 
 # Utilities
 uuid==1.30
+
+# Production server
+gunicorn==21.2.0
+eventlet==0.33.3
