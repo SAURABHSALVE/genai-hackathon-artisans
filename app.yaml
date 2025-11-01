@@ -1,0 +1,48 @@
+runtime: python312
+entrypoint: gunicorn -b :$PORT app:app --timeout 300 --workers 2
+
+instance_class: F2
+
+env_variables:
+  # GCP Configuration
+  GCP_PROJECT_ID: "hackathon-genai-475313"
+  GCS_BUCKET_NAME: "users-artisans"
+  GCP_REGION: "us-central1"
+  
+  # Application Settings
+  FLASK_ENV: "production"
+  PORT: "8080"
+  SECRET_KEY: "CHANGE-THIS-TO-SECURE-RANDOM-STRING"
+  
+  # Feature Flags
+  USE_REAL_BLOCKCHAIN: "false"
+  ENABLE_GCS_STORAGE: "true"
+  ENABLE_AI_STORIES: "true"
+  
+  # CORS Settings
+  CORS_ORIGINS: "https://hackathon-genai-475313.uc.r.appspot.com"
+  
+  # Image Processing
+  IMAGE_QUALITY: "85"
+  MAX_FILE_SIZE: "16777216"
+  
+  # Add your API keys here (DO NOT commit to git!)
+  # OPENAI_API_KEY: "your-key-here"
+  # JWT_SECRET_KEY: "your-jwt-secret-here"
+
+automatic_scaling:
+  target_cpu_utilization: 0.65
+  min_instances: 1
+  max_instances: 10
+  min_pending_latency: 30ms
+  max_pending_latency: automatic
+  max_concurrent_requests: 50
+
+handlers:
+- url: /static
+  static_dir: client/build/static
+  secure: always
+
+- url: /.*
+  script: auto
+  secure: always

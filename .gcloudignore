@@ -1,0 +1,57 @@
+# This file specifies files that are *not* uploaded to Google Cloud
+# using gcloud. It follows the same syntax as .gitignore
+
+.gcloudignore
+.git
+.gitignore
+
+# Python pycache:
+__pycache__/
+*.pyc
+
+# Node modules
+node_modules/
+client/node_modules/
+
+# Environment files (will be set via app.yaml)
+.env
+.env.local
+client/.env
+
+# Development files
+*.log
+*.db
+data/
+
+# Test files
+test_*.py
+*_test.py
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build files (we'll build on GCP)
+client/build/
+dist/
+*.egg-info/
+
+# Uploads (use GCS instead)
+uploads/
+story_uploads/
+
+# Documentation
+*.md
+!README.md
+
+# Service account keys (use GCP IAM instead)
+*.json
+!package.json
+!package-lock.json
+!client/package.json
+!client/package-lock.json
