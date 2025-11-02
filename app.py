@@ -128,13 +128,24 @@ use_postgres = False
 
 if pg8000 and all([DB_HOST, DB_USER, DB_PASS, DB_NAME]):
     postgres_uri = f"postgresql+pg8000://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-    print(f"🔌 Attempting to connect to Postgres DB: {DB_HOST}...")
+    print(f"🔌 Attempting to connect to Cloud SQL: {DB_HOST}...")
     
     try:
-        # Try to create a test engine with a 5-second timeout
+        # Import SSL module for Cloud SQL encryption
+        import ssl
+        
+        # Create SSL context (Cloud SQL requires encryption)
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        
+        # Try to create a test engine with SSL and timeout
         test_engine = create_engine(
             postgres_uri, 
-            connect_args={'timeout': 5}  # 5 second connection timeout
+            connect_args={
+                'timeout': 10,
+                'ssl_context': ssl_context
+            }
         )
         
         # Ping the database to check connection
@@ -143,7 +154,12 @@ if pg8000 and all([DB_HOST, DB_USER, DB_PASS, DB_NAME]):
         
         # If we got here, connection is good
         app.config['SQLALCHEMY_DATABASE_URI'] = postgres_uri
-        print(f"✅ Successfully connected to Postgres DB.")
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'connect_args': {
+                'ssl_context': ssl_context
+            }
+        }
+        print(f"✅ Successfully connected to Cloud SQL (PostgreSQL).")
         use_postgres = True
         
     except (OperationalError, InterfaceError) as e:
