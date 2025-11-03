@@ -7,7 +7,7 @@ AI-powered platform that creates digital souls for handmade crafts and mints the
 1. **Cloud Photo Upload**: Artisans upload photos to Google Cloud Storage with automatic processing
 2. **AI Storytelling**: OpenAI generates beautiful, emotional stories about each craft
 3. **Blockchain Minting**: Stories are minted as NFTs for permanent verification
-4. **AR Preview**: View crafts in augmented reality
+4. **AR Preview**: View crafts in augmented reality **[Watch Demo](https://www.youtube.com/watch?v=cQNGJm1eRd0)**
 5. **Direct Connection**: Links artisans directly with buyers
 6. **Secure Storage**: Images stored in Google Cloud Storage bucket `users-artisans`
 
