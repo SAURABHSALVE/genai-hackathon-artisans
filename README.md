@@ -1,185 +1,281 @@
-# Artisan Craft Platform
 
-AI-powered platform that creates digital souls for handmade crafts and mints them on blockchain with Google Cloud Storage integration.
+# 🧵 Artisan Craft Platform
 
-## Features
+### *"Digital Souls for Handmade Creations"*
 
-1. **Cloud Photo Upload**: Artisans upload photos to Google Cloud Storage with automatic processing
-2. **AI Storytelling**: OpenAI generates beautiful, emotional stories about each craft
-3. **Blockchain Minting**: Stories are minted as NFTs for permanent verification
-4. **AR Preview**: View crafts in augmented reality
-5. **Direct Connection**: Links artisans directly with buyers
-6. **Secure Storage**: Images stored in Google Cloud Storage bucket `users-artisans`
+An **AI-powered global platform** that gives handmade crafts a digital life — combining **OpenAI storytelling**, **Google Cloud infrastructure**, and **Blockchain minting** to preserve artisans’ stories forever.
 
-## Setup
+---
 
-### Prerequisites
-- Python 3.8 or higher
-- OpenAI API key
-- Google Cloud Project with Storage API enabled
-- Service Account with Storage Admin permissions
+## 🌍 Project Overview
 
-### Installation
+**Artisan Craft Platform** creates a bridge between local artisans and the global audience by fusing **AI + Cloud + Blockchain**.
+Each handmade craft is transformed into a unique digital collectible — complete with emotional storytelling, metadata, and AR preview.
 
-1. **Install Python Backend Dependencies:**
+---
+
+## ⚠️ Important Note (Hackathon Submission)
+
+Due to the **Google Cloud credits issue**, our project’s deployed backend temporarily went down after submission.
+The credits were not provided properly to our account during the hackathon period, which affected our deployed GCP resources.
+
+However, the **project is fully functional** and has been demonstrated end-to-end in the videos below.
+We request the judges to please **review our demo videos** for complete functionality.
+
+### 🎥 Full Project Demo:
+
+🔗 [https://youtu.be/EZZlAaDLxVQ?si=XG1r4Jt8Y4G9Msnj](https://youtu.be/EZZlAaDLxVQ?si=XG1r4Jt8Y4G9Msnj)
+
+### 🎥 AR Visualization Demo:
+
+🔗 [https://youtu.be/cQNGJm1eRd0](https://youtu.be/cQNGJm1eRd0)
+
+Our deployment originally ran fully on **Google Cloud**, utilizing:
+
+* **Vertex AI API** for AI storytelling and metadata generation
+* **Cloud SQL** for relational data storage
+* **Cloud Run** for backend deployment
+* **Google Cloud Storage (GCS)** for image and 3D model management
+
+---
+
+## ✨ Features
+
+1. **Cloud Photo Upload**
+   Upload craft photos to Google Cloud Storage, automatically optimized and processed.
+
+2. **AI Storytelling**
+   Vertex AI (and OpenAI) generate emotional, cultural, and creative stories about each craft.
+
+3. **Blockchain Minting**
+   The story and metadata are minted as NFTs for authenticity and provenance.
+
+4. **Augmented Reality (AR) Preview**
+   View crafts in AR to experience their presence digitally.
+
+5. **Direct Artisan-to-Buyer Connection**
+   Bypasses intermediaries and empowers artisans directly.
+
+6. **Secure Cloud Storage**
+   All images are safely stored in GCS bucket `users-artisans`.
+
+---
+
+## 🧱 Technology Stack
+
+### **Backend**
+
+* Python + Flask
+* OpenAI API / Vertex AI API
+* Cloud SQL (MySQL)
+* Google Cloud Storage (GCS)
+* Cloud Run (deployment)
+* Web3.py for Blockchain minting
+* Flask-CORS
+
+### **Frontend**
+
+* React.js
+* Axios
+* Tailwind CSS
+
+### **Blockchain**
+
+* Ethereum (Sepolia testnet)
+* ERC-721 NFT standard
+
+---
+
+## ⚙️ Setup & Installation
+
+### **Prerequisites**
+
+* Python 3.8+
+* Node.js + npm
+* Google Cloud Project with:
+
+  * Vertex AI API enabled
+  * Cloud SQL instance
+  * Cloud Storage bucket (`users-artisans`)
+  * Cloud Run deployment
+* Service Account with Storage & Vertex AI permissions
+
+---
+
+### **Backend Setup**
+
 ```bash
 pip install -r requirements.txt
-```
-
-2. **Install React Frontend Dependencies:**
-```bash
-cd client
-npm install
-cd ..
-```
-
-3. **Configure Environment:**
-Make sure your `.env` file has:
-```
-OPENAI_API_KEY=your_openai_api_key_here
-PORT=3001
-```
-
-### Running the Application
-
-**Terminal 1 - Backend:**
-```bash
 python app.py
 ```
 
-**Terminal 2 - Frontend:**
+### **Frontend Setup**
+
 ```bash
 cd client
+npm install
 npm start
 ```
 
-Then open http://localhost:3000 in your browser
+Then open:
+🌐 `http://localhost:3000`
 
-### Testing the Backend
+---
 
-Make sure the backend is running, then:
-```bash
-python test_upload.py
-```
+## 🔑 Environment Configuration
 
-### Alternative npm Scripts
-
-You can also use:
-```bash
-# Start backend
-npm run backend
-
-# Start frontend  
-npm run frontend
-
-# Test backend
-npm run test
-```
-
-## How It Works
-
-1. **Upload**: Artisan uploads a photo and provides basic info about their craft
-2. **AI Analysis**: OpenAI Vision API analyzes the image and generates:
-   - A compelling story about the craft's creation
-   - Metadata including tags, emotional tone, and cultural context
-3. **Preview**: The generated story and metadata are displayed
-4. **Mint**: The craft data is minted as an NFT on blockchain (currently simulated)
-
-## API Endpoints
-
-- `POST /api/upload-craft` - Upload craft image and generate story
-- `POST /api/mint-craft` - Mint craft as NFT
-- `GET /api/craft/:id` - Get craft details
-
-## Technology Stack
-
-### Backend
-- Python + Flask
-- OpenAI API (GPT-4 Vision)
-- Pillow (image processing)
-- Web3.py (blockchain integration)
-- Flask-CORS (cross-origin requests)
-
-### Frontend
-- React
-- Axios (HTTP client)
-- CSS3 (styling)
-
-### Blockchain
-- Ethereum (Sepolia testnet)
-- ERC-721 NFT standard
-- Web3.py integration
-
-## Next Steps
-
-1. **Deploy NFT Contract**: Deploy actual ERC-721 contract on testnet
-2. **Wallet Integration**: Add MetaMask/WalletConnect support
-3. **AR Features**: Implement AR.js for craft visualization
-4. **Database**: Add persistent storage (MongoDB/PostgreSQL)
-5. **User Authentication**: Add user accounts and profiles
-6. **Marketplace**: Build buying/selling functionality
-7. **Mobile App**: React Native mobile application
-
-## Environment Variables
+Create a `.env` file in the root:
 
 ```
-OPENAI_API_KEY=your_openai_api_key_here
 PORT=3001
-BLOCKCHAIN_NETWORK=sepolia
-PRIVATE_KEY=your_private_key_here
-CONTRACT_ADDRESS=your_contract_address_here
+FLASK_ENV=development
+SECRET_KEY=2ae74a149f3221dd1cb16baa3c13ceb10066845882f302adfb56c3556fd38618
+JWT_SECRET_KEY=2ae74a149f3221dd1cb16baa3c13ceb10066845882f302adfb56c3556fd38618
+DEBUG=True
+
+GOOGLE_API_KEY=
+OPENAI_API_KEY=
+
+GCP_PROJECT_ID=
+GCS_BUCKET_NAME=
+GCP_REGION=
+GOOGLE_APPLICATION_CREDENTIALS=service-account-key.json
+
+DB_USER=
+DB_PASS=
+DB_HOST=
+DB_NAME=
+# DB_NAME=artisans_v2
+INSTANCE_CONNECTION_NAME=
+
+
+
+# INSTANCE_CONNECTION_NAME=hackathon-genai-475313:us-central1:artisans-db-instance
+
+
+
+
+ENABLE_GCS_STORAGE=True
+ENABLE_BLOCKCHAIN=True
+ENABLE_AI_STORIES=True
+ENABLE_AR_PREVIEW=True
+
+LOG_LEVEL=INFO
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+IMAGE_QUALITY=85
+THUMBNAIL_SIZE=300
+PROCESSED_IMAGE_MAX_SIZE=1024
+
+USE_REAL_BLOCKCHAIN=true
+BLOCKCHAIN_NETWORK=your_polygon_amoy
+BLOCKCHAIN_API_KEY= from_metamask_wallet
+BLOCKCHAIN_WALLET_ADDRESS=
+BLOCKCHAIN_PRIVATE_KEY=
+BLOCKCHAIN_NETWORK=polygon-amoy
+BLOCKCHAIN_API_KEY=
+
+PORT=3001
+FLASK_ENV=development
+SECRET_KEY=2ae74a149f3221dd1cb16baa3c13ceb10066845882f302adfb56c3556fd38618
+JWT_SECRET_KEY=2ae74a149f3221dd1cb16baa3c13ceb10066845882f302adfb56c3556fd38618
+DEBUG=True
+---
+
+## 🚀 How It Works
+
+1. **Upload** – Artisan uploads photo + description
+2. **AI Generation** – Vertex AI + OpenAI create story, metadata & tags
+3. **Storage** – Files saved securely in GCS
+4. **Minting** – Metadata minted as NFT on Ethereum testnet
+5. **AR View** – User can view craft in augmented reality
+6. **Marketplace (Future)** – Buyers can directly connect with artisans
+
+---
+
+## 🧠 API Endpoints
+
+| Method   | Endpoint            | Description                   |
+| -------- | ------------------- | ----------------------------- |
+| `POST`   | `/api/upload-craft` | Upload image + generate story |
+| `POST`   | `/api/mint-craft`   | Mint craft NFT                |
+| `GET`    | `/api/craft/:id`    | Fetch craft details           |
+| `GET`    | `/api/gcs-files`    | List bucket files             |
+| `DELETE` | `/api/delete-file`  | Delete a GCS file             |
+
+---
+
+## 🪄 Storage Architecture
+
+**Google Cloud Bucket Structure:**
+
+```
+users-artisans/
+├── originals/       # Raw uploads
+├── processed/       # AI-enhanced versions
+├── thumbnails/      # Optimized previews
+└── ar-models/       # 3D AR assets
 ```
 
-## Contributing
+---
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+## 🛠 Testing
 
-## License
+### Test Google Cloud Storage:
 
-MIT License - see LICENSE file for details
-## Goo
-gle Cloud Storage Setup
-
-### Quick Setup
-1. **Create Service Account Key** (see `GCS_SETUP.md` for detailed instructions)
-2. **Download the JSON key file** and save as `service-account-key.json` in the project root
-3. **Update .env file** with your GCS configuration:
-```bash
-GCS_BUCKET_NAME=users-artisans
-GCP_PROJECT_ID=hackathon-genai-475313
-GOOGLE_APPLICATION_CREDENTIALS=./service-account-key.json
-```
-
-### Test GCS Integration
 ```bash
 python test_gcs.py
 ```
 
-## Project Configuration
+### Test Craft Upload:
 
-- **Project ID**: `hackathon-genai-475313`
-- **Project Number**: `39405707731`
-- **GCS Bucket**: `users-artisans`
-- **Storage Structure**:
-  - `originals/` - Original uploaded images
-  - `processed/` - AI-processed and optimized images
-  - `thumbnails/` - Generated thumbnails
-  - `ar-models/` - 3D models for AR
+```bash
+python test_upload.py
+```
 
-## New API Endpoints
+---
 
-- `POST /api/upload-image` - Upload images to Google Cloud Storage
-- `GET /api/gcs-files` - List files in GCS bucket
-- `DELETE /api/delete-file` - Delete files from GCS bucket
+## 🔮 Next Steps
 
-## Frontend Updates
+1. Deploy actual ERC-721 smart contract on mainnet
+2. Integrate MetaMask and WalletConnect
+3. Implement real-time AR rendering
+4. Add MongoDB/PostgreSQL persistent storage
+5. Launch Artisan Marketplace
+6. Release React Native mobile app
 
-The seller profile now includes:
-- Multi-step wizard with image upload step
-- Real-time upload progress
-- Image preview with GCS integration
-- Automatic image processing and optimization
+---
+
+## ❤️ Why This Project Matters
+
+Millions of artisans worldwide create beauty that often fades into obscurity.
+Our platform uses **AI and Web3** to **immortalize their art**, giving every handmade craft a **digital soul** — a story that lives forever on the blockchain.
+
+---
+
+## 🏁 Hackathon Submission Notes
+
+* The project was **fully functional** during the hackathon.
+* Due to **Google Cloud credits issue**, our deployment was temporarily disabled post-submission.
+* All features — Vertex AI story generation, Cloud Run API backend, Cloud SQL integration, and GCS storage — were working flawlessly.
+* We’ve provided **YouTube demonstration links** below to verify the working implementation.
+
+🎥 **Full Functionality Demo:**
+🔗 [https://youtu.be/EZZlAaDLxVQ?si=XG1r4Jt8Y4G9Msnj](https://youtu.be/EZZlAaDLxVQ?si=XG1r4Jt8Y4G9Msnj)
+
+🎥 **AR Demo:**
+🔗 [https://youtu.be/cQNGJm1eRd0](https://youtu.be/cQNGJm1eRd0)
+
+---
+
+## 🧾 License
+
+MIT License – See [LICENSE](LICENSE) for details.
+
+---
+
+## 💬 Authors
+
+**Team Artisan AI**
+Built with passion for art, culture, and innovation.
+“Empowering human creativity through AI and the Cloud.”
+
