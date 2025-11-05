@@ -272,6 +272,9 @@ Our platform uses **AI and Web3** to **immortalize their art**, giving every han
 🎥 **AR Demo:**
 🔗 [https://youtu.be/cQNGJm1eRd0](https://youtu.be/cQNGJm1eRd0)
 
+🎥 **Blockchain Demo:**
+🔗 [https://youtu.be/tDBTcvJVFIk](https://youtu.be/tDBTcvJVFIk)
+
 ---
 
 ## 🧾 License
