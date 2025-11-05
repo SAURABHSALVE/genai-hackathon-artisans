@@ -30,6 +30,10 @@ We request the judges to please **review our demo videos** for complete function
 
 🔗 [https://youtu.be/cQNGJm1eRd0](https://youtu.be/cQNGJm1eRd0)
 
+### 🎥 Blockchain Real-Time Demo:
+
+🔗 [https://youtu.be/tDBTcvJVFIk](https://youtu.be/tDBTcvJVFIk)
+
 Our deployment originally ran fully on **Google Cloud**, utilizing:
 
 * **Vertex AI API** for AI storytelling and metadata generation
@@ -264,6 +268,10 @@ Our platform uses **AI and Web3** to **immortalize their art**, giving every han
 
 🎥 **AR Demo:**
 🔗 [https://youtu.be/cQNGJm1eRd0](https://youtu.be/cQNGJm1eRd0)
+
+🎥 **Blockchain Demo:**
+🔗 [https://youtu.be/tDBTcvJVFIk](https://youtu.be/tDBTcvJVFIk)
+
 
 ---
 
