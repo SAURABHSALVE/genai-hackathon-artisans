@@ -46,7 +46,7 @@ Our deployment originally ran fully on **Google Cloud**, utilizing:
 
 ---
 
-## ✨ Features
+## ✨ Feature
 
 1. **Cloud Photo Upload**
    Upload craft photos to Google Cloud Storage, automatically optimized and processed.
